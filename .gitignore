@@ -1,0 +1,32 @@
+# Secrets and credentials
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/
+
+# Private keys (specific patterns)
+**/private-key*
+**/privatekey*
+**/*_key.json
+**/*-key.json
+
+# Build artifacts
+node_modules/
+dist/
+build/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Outputs (preserve structure, ignore content in some scenarios)
+# For demo, we want to commit stub outputs, so NOT ignoring demo/out/
+# But ignore any accidentally generated real outputs
+demo/out/**/*.real.json

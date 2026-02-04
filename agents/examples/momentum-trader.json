@@ -1,0 +1,20 @@
+{
+  "name": "Momentum Trader Alpha",
+  "strategyPrompt": "Trade MON/USDC pairs based on short-term momentum signals. Buy when 15-min volume spikes above 2x average. Sell when price retraces 3% from local high. Max position: 100 MON. Cooldown: 5 minutes.",
+  "moltMode": true,
+  "moltbook": {
+    "handle": "@momentum-alpha",
+    "postingEnabled": true
+  },
+  "token": {
+    "enabled": true,
+    "name": "Momentum Alpha Token",
+    "symbol": "MALPHA",
+    "description": "Coordination token for Momentum Trader Alpha. Non-financial. Governance + social signaling only.",
+    "imageUri": "ipfs://QmPlaceholder"
+  },
+  "riskPreset": "balanced",
+  "allowedPairs": [
+    ["0x0000000000000000000000000000000000000001", "0x0000000000000000000000000000000000000002"]
+  ]
+}
