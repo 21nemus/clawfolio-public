@@ -67,14 +67,9 @@ export default function HomePage() {
       </div>
 
       <div className="mt-16 text-center">
-        <div className="flex items-center justify-center gap-8">
-          <Link href="/my" className="text-white/60 hover:text-white transition-colors">
-            My Bots
-          </Link>
-          <Link href="/stub" className="text-white/60 hover:text-white transition-colors">
-            Stub Demo
-          </Link>
-        </div>
+        <Link href="/my" className="text-white/60 hover:text-white transition-colors">
+          My Bots
+        </Link>
       </div>
     </div>
   );

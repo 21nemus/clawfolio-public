@@ -46,14 +46,6 @@ export function Navbar() {
               >
                 My Bots
               </Link>
-              <Link 
-                href="/stub" 
-                className={`text-sm font-medium transition-colors hover:text-red-400 ${
-                  isActive('/stub') ? 'text-red-400' : 'text-white/70'
-                }`}
-              >
-                Stub Demo
-              </Link>
             </div>
           </div>
 

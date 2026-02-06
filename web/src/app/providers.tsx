@@ -2,18 +2,21 @@
 
 import '@rainbow-me/rainbowkit/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiProvider } from 'wagmi';
-import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { WagmiProvider, createConfig, http } from 'wagmi';
+import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { injected } from 'wagmi/connectors';
 import { monadTestnet } from '@/lib/chain';
 import { loadConfig } from '@/lib/config';
 import { ReactNode, useState } from 'react';
 
 const appConfig = loadConfig();
 
-const config = getDefaultConfig({
-  appName: 'Clawfolio',
-  projectId: appConfig.walletConnectProjectId || 'CLAWFOLIO_DEFAULT_ID',
+const config = createConfig({
   chains: [monadTestnet],
+  connectors: [injected()],
+  transports: {
+    [monadTestnet.id]: http(appConfig.rpcHttpUrl),
+  },
   ssr: true,
 });
 

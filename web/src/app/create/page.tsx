@@ -118,7 +118,7 @@ export default function CreatePage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6">
-          <p className="text-red-400">BotRegistry address not configured. Set NEXT_PUBLIC_BOT_REGISTRY.</p>
+          <p className="text-red-400">BotRegistry address not configured. Set NEXT_PUBLIC_BOT_REGISTRY or NEXT_PUBLIC_BOT_REGISTRY_ADDR.</p>
         </div>
       </div>
     );

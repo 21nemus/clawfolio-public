@@ -3,6 +3,7 @@
 import { useBotRegistryLogs } from '@/hooks/useBotRegistryLogs';
 import { useBotDetails, LIFECYCLE_STATES } from '@/hooks/useBotDetails';
 import { useBotEvents } from '@/hooks/useBotEvents';
+import { useBotToken } from '@/hooks/useBotToken';
 import { ProofPanel } from '@/components/ProofPanel';
 import { EventTimeline } from '@/components/EventTimeline';
 import { AddressLink } from '@/components/AddressLink';
@@ -13,6 +14,10 @@ import { PauseControl } from '@/components/actions/PauseControl';
 import { LifecycleControl } from '@/components/actions/LifecycleControl';
 import { DepositControl } from '@/components/actions/DepositControl';
 import { WithdrawControl } from '@/components/actions/WithdrawControl';
+import { TokenizePanel } from '@/components/actions/TokenizePanel';
+import { PostsFeed } from '@/components/PostsFeed';
+import { StatusChip } from '@/components/StatusChip';
+import { CopyButton } from '@/components/CopyButton';
 
 export default function BotDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -22,6 +27,7 @@ export default function BotDetailPage({ params }: { params: { id: string } }) {
   const bot = logs.find((b) => b.botId.toString() === id);
   const { details, loading: detailsLoading } = useBotDetails(bot?.botAccount);
   const { events, loading: eventsLoading } = useBotEvents(bot?.botAccount);
+  const { token: botToken } = useBotToken(bot?.botId);
 
   const isCreator = details && address && details.creator.toLowerCase() === address.toLowerCase();
 
@@ -56,6 +62,23 @@ export default function BotDetailPage({ params }: { params: { id: string } }) {
         <p className="text-white/60">Loading bot details...</p>
       ) : details ? (
         <div className="space-y-6">
+          <div className="flex flex-wrap gap-2 mb-4">
+            <StatusChip 
+              label={details.paused ? 'Paused' : 'Active'} 
+              variant={details.paused ? 'warning' : 'success'} 
+            />
+            <StatusChip 
+              label={`Lifecycle: ${LIFECYCLE_STATES[details.lifecycleState as keyof typeof LIFECYCLE_STATES]}`}
+              variant="info"
+            />
+            {botToken && (
+              <StatusChip 
+                label="Token Launched" 
+                variant="success" 
+              />
+            )}
+          </div>
+
           <ProofPanel
             title="Bot Details"
             items={[
@@ -81,11 +104,21 @@ export default function BotDetailPage({ params }: { params: { id: string } }) {
           <ProofPanel
             title="Creation"
             items={[
-              { label: 'Transaction', value: <TxLink hash={bot.transactionHash} /> },
+              { 
+                label: 'Transaction', 
+                value: (
+                  <div className="flex items-center gap-2">
+                    <TxLink hash={bot.transactionHash} />
+                    <CopyButton text={bot.transactionHash} label="tx hash" />
+                  </div>
+                )
+              },
               { label: 'Block', value: bot.blockNumber.toString() },
               { label: 'Metadata URI', value: bot.metadataURI.slice(0, 50) + '...' },
             ]}
           />
+
+          <TokenizePanel botId={bot.botId} botToken={botToken || undefined} isCreator={!!isCreator} />
 
           {isCreator && (
             <div className="space-y-4">
@@ -130,6 +163,8 @@ export default function BotDetailPage({ params }: { params: { id: string } }) {
             <h3 className="text-lg font-semibold mb-4 text-red-400">Deposit Funds</h3>
             <DepositControl botAccount={bot.botAccount} userAddress={address!} />
           </div>
+
+          <PostsFeed botId={id} />
 
           <EventTimeline events={events} loading={eventsLoading} />
         </div>

@@ -52,7 +52,7 @@ export default async function DashboardPage() {
           <div className="bg-red-500/10 border border-red-500 rounded-lg p-6">
             <p className="text-red-300 font-medium">{data.error}</p>
             <p className="text-slate-400 mt-2 text-sm">
-              Set NEXT_PUBLIC_BOT_REGISTRY in your environment variables
+              Set NEXT_PUBLIC_BOT_REGISTRY (or NEXT_PUBLIC_BOT_REGISTRY_ADDR) in your environment variables
             </p>
           </div>
         </div>

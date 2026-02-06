@@ -41,7 +41,7 @@ export function loadConfig(): AppConfig {
   // Support both NEXT_PUBLIC_RPC_HTTP_URL and NEXT_PUBLIC_RPC_URL (alias)
   const rpcHttpUrl = getEnv('NEXT_PUBLIC_RPC_HTTP_URL') || getEnv('NEXT_PUBLIC_RPC_URL') || 'https://testnet-rpc.monad.xyz';
   // Support both NEXT_PUBLIC_BOT_REGISTRY and NEXT_PUBLIC_BOT_REGISTRY_ADDR (alias)
-  const botRegistry = parseAddress(getEnv('NEXT_PUBLIC_BOT_REGISTRY') || getEnv('NEXT_PUBLIC_BOT_REGISTRY_ADDR'));
+  const botRegistry = parseAddress(getEnv('NEXT_PUBLIC_BOT_REGISTRY')) || parseAddress(getEnv('NEXT_PUBLIC_BOT_REGISTRY_ADDR'));
   const explorerTxUrlPrefix = getEnv('NEXT_PUBLIC_EXPLORER_TX_URL_PREFIX', 'https://monadvision.com/tx/') || 'https://monadvision.com/tx/';
   const explorerAddressUrlPrefix = getEnv('NEXT_PUBLIC_EXPLORER_ADDRESS_URL_PREFIX', 'https://monadvision.com/address/') || 'https://monadvision.com/address/';
   const explorerBlockUrlPrefix = getEnv('NEXT_PUBLIC_EXPLORER_BLOCK_URL_PREFIX', 'https://monadvision.com/block/') || 'https://monadvision.com/block/';
@@ -71,16 +71,14 @@ export function getConfigIssues(config: AppConfig): string[] {
   const issues: string[] = [];
   
   if (!config.botRegistry) {
-    issues.push('BotRegistry address not configured (set NEXT_PUBLIC_BOT_REGISTRY)');
+    issues.push('BotRegistry address not configured (set NEXT_PUBLIC_BOT_REGISTRY or NEXT_PUBLIC_BOT_REGISTRY_ADDR)');
   }
   
   if (!config.rpcHttpUrl || config.rpcHttpUrl.includes('localhost')) {
     issues.push('RPC URL may be invalid or pointing to localhost');
   }
   
-  if (!config.walletConnectProjectId || config.walletConnectProjectId.includes('YOUR_') || config.walletConnectProjectId === 'CLAWFOLIO_DEFAULT_ID') {
-    issues.push('WalletConnect Project ID not configured - WalletConnect wallets may not work (set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID)');
-  }
+  // Skip WalletConnect warning - injected wallets only mode
   
   return issues;
 }

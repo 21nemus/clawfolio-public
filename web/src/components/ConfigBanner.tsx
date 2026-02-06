@@ -1,8 +1,19 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { loadConfig, getConfigIssues } from '@/lib/config';
 
 export function ConfigBanner() {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+
   const config = loadConfig();
   const issues = getConfigIssues(config);
 
