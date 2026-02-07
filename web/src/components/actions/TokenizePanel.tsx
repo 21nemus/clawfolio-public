@@ -40,11 +40,13 @@ interface FormData {
 export function TokenizePanel({ 
   botId, 
   botToken, 
-  isCreator 
+  isCreator,
+  botMetadata,
 }: { 
   botId: bigint; 
   botToken?: `0x${string}`; 
   isCreator: boolean;
+  botMetadata?: Record<string, unknown> | null;
 }) {
   const { address } = useAccount();
   const publicClient = usePublicClient();
@@ -64,6 +66,9 @@ export function TokenizePanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [useAgentAvatar, setUseAgentAvatar] = useState(false);
+
+  const agentAvatarUrl = botMetadata?.image ? (botMetadata.image as string) : null;
 
   // Load token progress if already tokenized
   const [progressLoading, setProgressLoading] = useState(false);
@@ -80,6 +85,12 @@ export function TokenizePanel({
     }
   };
 
+  const handleUseAgentAvatar = () => {
+    if (!agentAvatarUrl) return;
+    setState((s) => ({ ...s, imageUri: agentAvatarUrl }));
+    setStep(2);
+  };
+
   const handleImageUpload = async () => {
     if (!imageFile) {
       setError('Please select an image');
@@ -88,8 +99,13 @@ export function TokenizePanel({
     setLoading(true);
     setError('');
     try {
-      const { image_uri } = await uploadImage(imageFile);
-      setState((s) => ({ ...s, imageUri: image_uri }));
+      const result = await uploadImage(imageFile);
+      // Robust to different response shapes (image_uri vs url vs image_url)
+      const imageUri = result.image_uri || (result as any).url || (result as any).image_url;
+      if (!imageUri) {
+        throw new Error('No image URL in response');
+      }
+      setState((s) => ({ ...s, imageUri }));
       setStep(2);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Upload failed');
@@ -313,6 +329,32 @@ export function TokenizePanel({
       {step === 1 && (
         <div className="space-y-4">
           <p className="text-white/80 text-sm">Step 1: Upload Image</p>
+          
+          {agentAvatarUrl && (
+            <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center gap-4">
+                <img 
+                  src={agentAvatarUrl} 
+                  alt="Agent avatar" 
+                  className="w-12 h-12 rounded object-cover border border-white/10"
+                />
+                <div className="flex-1">
+                  <p className="text-sm text-white/80 mb-2">Use agent avatar as token image?</p>
+                  <button
+                    onClick={handleUseAgentAvatar}
+                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-colors"
+                  >
+                    Use Agent Avatar →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="text-center text-white/40 text-xs">
+            {agentAvatarUrl ? 'or upload a different image:' : 'Upload token image:'}
+          </div>
+
           <input
             type="file"
             accept="image/*"

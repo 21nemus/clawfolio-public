@@ -6,13 +6,22 @@ import { useState, useEffect } from 'react';
 import { publicClient } from '@/lib/clients';
 import { BOT_REGISTRY_ABI } from '@/lib/abi';
 import { loadConfig } from '@/lib/config';
+import { decodeMetadataURI } from '@/lib/encoding';
 import Link from 'next/link';
+
+interface BotEnrichment {
+  name?: string;
+  handle?: string;
+  image?: string;
+  hasToken?: boolean;
+}
 
 export default function BotsPage() {
   const { logs, loading, error } = useBotRegistryLogs();
   const [searchQuery, setSearchQuery] = useState('');
   const [directLookupBot, setDirectLookupBot] = useState<{botId: bigint; botAccount: `0x${string}`} | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
+  const [enrichments, setEnrichments] = useState<Map<string, BotEnrichment>>(new Map());
 
   const filteredLogs = logs.filter((log) => {
     if (!searchQuery) return true;
@@ -23,6 +32,67 @@ export default function BotsPage() {
       log.creator.toLowerCase().includes(query)
     );
   });
+
+  // Enrich visible bots with identity + token status
+  useEffect(() => {
+    if (loading || filteredLogs.length === 0) return;
+
+    const enrichBots = async () => {
+      const config = loadConfig();
+      if (!config.botRegistry) return;
+
+      try {
+        const enrichmentResults = await Promise.all(
+          filteredLogs.map(async (bot) => {
+            try {
+              const [metadataURI, tokenAddress] = await Promise.all([
+                publicClient.readContract({
+                  address: config.botRegistry!,
+                  abi: BOT_REGISTRY_ABI,
+                  functionName: 'metadataURI',
+                  args: [bot.botId],
+                }) as Promise<string>,
+                publicClient.readContract({
+                  address: config.botRegistry!,
+                  abi: BOT_REGISTRY_ABI,
+                  functionName: 'botTokenOf',
+                  args: [bot.botId],
+                }) as Promise<`0x${string}`>,
+              ]);
+
+              const metadata = decodeMetadataURI(metadataURI);
+              const hasToken = tokenAddress !== '0x0000000000000000000000000000000000000000';
+
+              return {
+                botId: bot.botId.toString(),
+                enrichment: {
+                  name: metadata?.name as string | undefined,
+                  handle: metadata?.handle as string | undefined,
+                  image: metadata?.image as string | undefined,
+                  hasToken,
+                },
+              };
+            } catch {
+              return {
+                botId: bot.botId.toString(),
+                enrichment: {},
+              };
+            }
+          })
+        );
+
+        const newEnrichments = new Map<string, BotEnrichment>();
+        enrichmentResults.forEach(({ botId, enrichment }) => {
+          newEnrichments.set(botId, enrichment);
+        });
+        setEnrichments(newEnrichments);
+      } catch (err) {
+        console.error('Failed to enrich bots:', err);
+      }
+    };
+
+    enrichBots();
+  }, [filteredLogs, loading]);
 
   // Direct lookup by botId if search query is numeric
   useEffect(() => {
@@ -136,9 +206,19 @@ export default function BotsPage() {
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredLogs.map((bot) => (
-                <BotCard key={bot.botId.toString()} bot={bot} />
-              ))}
+              {filteredLogs.map((bot) => {
+                const enrichment = enrichments.get(bot.botId.toString());
+                return (
+                  <BotCard 
+                    key={bot.botId.toString()} 
+                    bot={bot}
+                    name={enrichment?.name}
+                    handle={enrichment?.handle}
+                    image={enrichment?.image}
+                    hasToken={enrichment?.hasToken}
+                  />
+                );
+              })}
             </div>
           )}
         </>

@@ -198,7 +198,12 @@ export default function BotDetailPage() {
             ]}
           />
 
-          <TokenizePanel botId={bot.botId} botToken={botToken || undefined} isCreator={!!isCreator} />
+          <TokenizePanel 
+            botId={bot.botId} 
+            botToken={botToken || undefined} 
+            isCreator={!!isCreator}
+            botMetadata={metadata}
+          />
 
           {isCreator && (
             <div className="space-y-4">

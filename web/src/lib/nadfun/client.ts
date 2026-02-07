@@ -7,7 +7,9 @@ import { CURVE, LENS } from './constants';
 import { curveAbi, lensAbi } from './abi';
 
 export interface UploadImageResponse {
-  image_uri: string;
+  image_uri?: string;
+  url?: string;
+  image_url?: string;
   is_nsfw?: boolean;
 }
 
