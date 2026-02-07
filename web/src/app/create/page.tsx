@@ -31,6 +31,7 @@ export default function CreatePage() {
   
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [strategyPrompt, setStrategyPrompt] = useState('');
   const [handle, setHandle] = useState('');
   const [operator, setOperator] = useState('');
   const [riskPreset, setRiskPreset] = useState<keyof typeof RISK_PRESETS>('balanced');
@@ -52,6 +53,7 @@ export default function CreatePage() {
     const metadata = {
       name,
       description,
+      strategyPrompt: strategyPrompt || undefined,
       handle: handle || undefined,
     };
 
@@ -154,6 +156,7 @@ export default function CreatePage() {
               setCreatedBotAccount(null);
               setName('');
               setDescription('');
+              setStrategyPrompt('');
               setHandle('');
             }}
             className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-lg transition-colors"
@@ -193,6 +196,18 @@ export default function CreatePage() {
             rows={3}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Strategy Prompt</label>
+          <textarea
+            value={strategyPrompt}
+            onChange={(e) => setStrategyPrompt(e.target.value)}
+            placeholder="Trade MON/USDC pairs based on momentum signals. Buy when 15-min volume spikes above 2x average..."
+            rows={4}
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 font-mono text-sm"
+          />
+          <p className="text-xs text-white/40 mt-1">This prompt will be read by your agent runner to guide trading decisions</p>
         </div>
 
         <div>

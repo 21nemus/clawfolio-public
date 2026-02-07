@@ -16,7 +16,7 @@ export interface BotCreatedEvent {
 const CHUNK_SIZE = 100n;
 const MAX_EVENTS = 200;
 const MAX_CHUNKS = 50; // safety cap (50 chunks * 100 blocks = 5000 blocks max lookback)
-const LOOKBACK_WINDOW = 5000n; // recent block lookback for fast demo
+const LOOKBACK_WINDOW = 5000n; // recent block lookback for fast queries
 
 export function useBotRegistryLogs(filterAddress?: `0x${string}`) {
   const [logs, setLogs] = useState<BotCreatedEvent[]>([]);
@@ -41,7 +41,7 @@ export function useBotRegistryLogs(filterAddress?: `0x${string}`) {
         // Get latest block number
         const latestBlock = await publicClient.getBlockNumber();
         
-        // Calculate lookback start (recent window for fast demo)
+        // Calculate lookback start (recent window for fast queries)
         const lookbackStart = latestBlock - LOOKBACK_WINDOW;
         const effectiveStartBlock = lookbackStart > config.startBlock ? lookbackStart : config.startBlock;
         

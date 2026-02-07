@@ -60,7 +60,7 @@ export type BotEvent =
     };
 
 const CHUNK_SIZE = 100n;
-const LOOKBACK_WINDOW = 5000n; // recent block lookback for fast demo
+const LOOKBACK_WINDOW = 5000n; // recent block lookback for fast queries
 
 export function useBotEvents(botAccountAddress: `0x${string}` | null | undefined) {
   const [events, setEvents] = useState<BotEvent[]>([]);
@@ -85,7 +85,7 @@ export function useBotEvents(botAccountAddress: `0x${string}` | null | undefined
         // Get latest block number
         const latestBlock = await publicClient.getBlockNumber();
         
-        // Calculate lookback start (recent window for fast demo)
+        // Calculate lookback start (recent window for fast queries)
         const lookbackStart = latestBlock - LOOKBACK_WINDOW;
         const effectiveStartBlock = lookbackStart > config.startBlock ? lookbackStart : config.startBlock;
 

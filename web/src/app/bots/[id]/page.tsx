@@ -1,6 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { useBotRegistryLogs } from '@/hooks/useBotRegistryLogs';
 import { useBotDetails, LIFECYCLE_STATES } from '@/hooks/useBotDetails';
 import { useBotEvents } from '@/hooks/useBotEvents';
@@ -19,6 +20,7 @@ import { TokenizePanel } from '@/components/actions/TokenizePanel';
 import { PostsFeed } from '@/components/PostsFeed';
 import { StatusChip } from '@/components/StatusChip';
 import { CopyButton } from '@/components/CopyButton';
+import { decodeMetadataURI } from '@/lib/encoding';
 
 export default function BotDetailPage() {
   const params = useParams();
@@ -30,6 +32,16 @@ export default function BotDetailPage() {
   const { details, loading: detailsLoading } = useBotDetails(bot?.botAccount);
   const { events, loading: eventsLoading } = useBotEvents(bot?.botAccount);
   const { token: botToken } = useBotToken(bot?.botId);
+
+  const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
+  const [strategyExpanded, setStrategyExpanded] = useState(false);
+
+  useEffect(() => {
+    if (bot) {
+      const decoded = decodeMetadataURI(bot.metadataURI);
+      setMetadata(decoded);
+    }
+  }, [bot]);
 
   const isCreator = details && address && details.creator.toLowerCase() === address.toLowerCase();
 
@@ -80,6 +92,60 @@ export default function BotDetailPage() {
               />
             )}
           </div>
+
+          {metadata ? (
+            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+              <h3 className="text-lg font-semibold mb-4 text-red-400">Identity & Strategy</h3>
+              <div className="space-y-3 text-sm">
+                {metadata.name ? (
+                  <div>
+                    <span className="text-white/60">Name:</span>
+                    <span className="ml-2 text-white font-medium">{metadata.name as string}</span>
+                  </div>
+                ) : null}
+                {metadata.description ? (
+                  <div>
+                    <span className="text-white/60">Description:</span>
+                    <p className="mt-1 text-white/80">{metadata.description as string}</p>
+                  </div>
+                ) : null}
+                {metadata.handle ? (
+                  <div>
+                    <span className="text-white/60">Handle:</span>
+                    <span className="ml-2 text-white/80 font-mono text-xs">{metadata.handle as string}</span>
+                  </div>
+                ) : null}
+                {metadata.strategyPrompt ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-white/60">Strategy Prompt:</span>
+                      <div className="flex gap-2">
+                        <CopyButton text={metadata.strategyPrompt as string} label="strategy" />
+                        <button
+                          onClick={() => setStrategyExpanded(!strategyExpanded)}
+                          className="text-xs text-red-400 hover:text-red-300"
+                        >
+                          {strategyExpanded ? 'Collapse' : 'Expand'}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-white/80 font-mono text-xs bg-black/20 p-3 rounded border border-white/5">
+                      {strategyExpanded 
+                        ? metadata.strategyPrompt as string 
+                        : (metadata.strategyPrompt as string).slice(0, 200) + ((metadata.strategyPrompt as string).length > 200 ? '...' : '')}
+                    </p>
+                    <p className="text-xs text-white/40 mt-1">This prompt guides the agent runner's trading decisions</p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+              <h3 className="text-lg font-semibold mb-2 text-red-400">Identity & Strategy</h3>
+              <p className="text-white/60 text-sm">Metadata not decodable. Raw URI:</p>
+              <p className="text-white/40 text-xs font-mono mt-2 break-all">{bot.metadataURI}</p>
+            </div>
+          )}
 
           <ProofPanel
             title="Bot Details"
