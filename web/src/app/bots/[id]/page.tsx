@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { useBotRegistryLogs } from '@/hooks/useBotRegistryLogs';
+import { useBotRegistryLogs, BotCreatedEvent } from '@/hooks/useBotRegistryLogs';
 import { useBotDetails, LIFECYCLE_STATES } from '@/hooks/useBotDetails';
 import { useBotEvents } from '@/hooks/useBotEvents';
 import { useBotToken } from '@/hooks/useBotToken';
@@ -21,6 +21,9 @@ import { PostsFeed } from '@/components/PostsFeed';
 import { StatusChip } from '@/components/StatusChip';
 import { CopyButton } from '@/components/CopyButton';
 import { decodeMetadataURI } from '@/lib/encoding';
+import { publicClient } from '@/lib/clients';
+import { BOT_REGISTRY_ABI } from '@/lib/abi';
+import { loadConfig } from '@/lib/config';
 
 export default function BotDetailPage() {
   const params = useParams();
@@ -28,13 +31,85 @@ export default function BotDetailPage() {
   const { logs, loading: logsLoading } = useBotRegistryLogs();
   const { address } = useAccount();
   
-  const bot = logs.find((b) => b.botId.toString() === id);
+  const [bot, setBot] = useState<BotCreatedEvent | null>(null);
+  const [directLookupLoading, setDirectLookupLoading] = useState(false);
+  const [botNotFound, setBotNotFound] = useState(false);
+
   const { details, loading: detailsLoading } = useBotDetails(bot?.botAccount);
   const { events, loading: eventsLoading } = useBotEvents(bot?.botAccount);
   const { token: botToken } = useBotToken(bot?.botId);
 
   const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
   const [strategyExpanded, setStrategyExpanded] = useState(false);
+
+  // Find bot in logs or do direct lookup
+  useEffect(() => {
+    const botFromLogs = logs.find((b) => b.botId.toString() === id);
+    
+    if (botFromLogs) {
+      setBot(botFromLogs);
+      setBotNotFound(false);
+      return;
+    }
+
+    // If logs are still loading, wait
+    if (logsLoading) {
+      return;
+    }
+
+    // Direct lookup fallback when bot not in logs
+    const directLookup = async () => {
+      const config = loadConfig();
+      if (!config.botRegistry) {
+        setBotNotFound(true);
+        return;
+      }
+
+      try {
+        setDirectLookupLoading(true);
+        const botId = BigInt(id);
+
+        const [botAccount, metadataURI] = await Promise.all([
+          publicClient.readContract({
+            address: config.botRegistry,
+            abi: BOT_REGISTRY_ABI,
+            functionName: 'botAccountOf',
+            args: [botId],
+          }) as Promise<`0x${string}`>,
+          publicClient.readContract({
+            address: config.botRegistry,
+            abi: BOT_REGISTRY_ABI,
+            functionName: 'metadataURI',
+            args: [botId],
+          }) as Promise<string>,
+        ]);
+
+        if (!botAccount || botAccount === '0x0000000000000000000000000000000000000000') {
+          setBotNotFound(true);
+          return;
+        }
+
+        // Construct minimal bot object (creator/operator will be fetched by useBotDetails)
+        setBot({
+          botId,
+          botAccount,
+          creator: '0x0000000000000000000000000000000000000000' as `0x${string}`, // Placeholder, will be populated by details
+          operator: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+          metadataURI,
+          transactionHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
+          blockNumber: 0n,
+        });
+        setBotNotFound(false);
+      } catch (err) {
+        console.error('Direct lookup failed:', err);
+        setBotNotFound(true);
+      } finally {
+        setDirectLookupLoading(false);
+      }
+    };
+
+    directLookup();
+  }, [id, logs, logsLoading]);
 
   useEffect(() => {
     if (bot) {
@@ -43,17 +118,30 @@ export default function BotDetailPage() {
     }
   }, [bot]);
 
+  // Update creator/operator from details when available (for direct lookup case)
+  useEffect(() => {
+    if (bot && details && bot.creator === '0x0000000000000000000000000000000000000000') {
+      setBot((prev) => prev ? {
+        ...prev,
+        creator: details.creator,
+        operator: details.operator,
+      } : null);
+    }
+  }, [bot, details]);
+
   const isCreator = details && address && details.creator.toLowerCase() === address.toLowerCase();
 
-  if (logsLoading) {
+  if (logsLoading || directLookupLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <p className="text-white/60">Loading...</p>
+        <p className="text-white/60">
+          {directLookupLoading ? 'Looking up bot onchain...' : 'Loading...'}
+        </p>
       </div>
     );
   }
 
-  if (!bot) {
+  if (botNotFound || !bot) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6">
@@ -181,22 +269,32 @@ export default function BotDetailPage() {
             ]}
           />
 
-          <ProofPanel
-            title="Creation"
-            items={[
-              { 
-                label: 'Transaction', 
-                value: (
-                  <div className="flex items-center gap-2">
-                    <TxLink hash={bot.transactionHash} />
-                    <CopyButton text={bot.transactionHash} label="tx hash" />
-                  </div>
-                )
-              },
-              { label: 'Block', value: bot.blockNumber.toString() },
-              { label: 'Metadata URI', value: bot.metadataURI.slice(0, 50) + '...' },
-            ]}
-          />
+          {bot.transactionHash !== '0x0000000000000000000000000000000000000000000000000000000000000000' ? (
+            <ProofPanel
+              title="Creation"
+              items={[
+                { 
+                  label: 'Transaction', 
+                  value: (
+                    <div className="flex items-center gap-2">
+                      <TxLink hash={bot.transactionHash} />
+                      <CopyButton text={bot.transactionHash} label="tx hash" />
+                    </div>
+                  )
+                },
+                { label: 'Block', value: bot.blockNumber.toString() },
+                { label: 'Metadata URI', value: bot.metadataURI.slice(0, 50) + '...' },
+              ]}
+            />
+          ) : (
+            <ProofPanel
+              title="Creation"
+              items={[
+                { label: 'Transaction', value: 'Not available (bot found via direct lookup)' },
+                { label: 'Metadata URI', value: bot.metadataURI.slice(0, 50) + '...' },
+              ]}
+            />
+          )}
 
           <TokenizePanel 
             botId={bot.botId} 

@@ -16,10 +16,19 @@ interface BotEnrichment {
   hasToken?: boolean;
 }
 
+interface DirectLookupBot {
+  botId: bigint;
+  botAccount: `0x${string}`;
+  name?: string;
+  handle?: string;
+  image?: string;
+  hasToken?: boolean;
+}
+
 export default function BotsPage() {
   const { logs, loading, error } = useBotRegistryLogs();
   const [searchQuery, setSearchQuery] = useState('');
-  const [directLookupBot, setDirectLookupBot] = useState<{botId: bigint; botAccount: `0x${string}`} | null>(null);
+  const [directLookupBot, setDirectLookupBot] = useState<DirectLookupBot | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [enrichments, setEnrichments] = useState<Map<string, BotEnrichment>>(new Map());
 
@@ -116,15 +125,40 @@ export default function BotsPage() {
 
       try {
         setLookupLoading(true);
-        const botAccount = await publicClient.readContract({
-          address: config.botRegistry,
-          abi: BOT_REGISTRY_ABI,
-          functionName: 'botAccountOf',
-          args: [botId],
-        }) as `0x${string}`;
+        
+        const [botAccount, metadataURI, tokenAddress] = await Promise.all([
+          publicClient.readContract({
+            address: config.botRegistry,
+            abi: BOT_REGISTRY_ABI,
+            functionName: 'botAccountOf',
+            args: [botId],
+          }) as Promise<`0x${string}`>,
+          publicClient.readContract({
+            address: config.botRegistry,
+            abi: BOT_REGISTRY_ABI,
+            functionName: 'metadataURI',
+            args: [botId],
+          }) as Promise<string>,
+          publicClient.readContract({
+            address: config.botRegistry,
+            abi: BOT_REGISTRY_ABI,
+            functionName: 'botTokenOf',
+            args: [botId],
+          }) as Promise<`0x${string}`>,
+        ]);
 
         if (botAccount && botAccount !== '0x0000000000000000000000000000000000000000') {
-          setDirectLookupBot({ botId, botAccount });
+          const metadata = decodeMetadataURI(metadataURI);
+          const hasToken = tokenAddress !== '0x0000000000000000000000000000000000000000';
+
+          setDirectLookupBot({
+            botId,
+            botAccount,
+            name: metadata?.name as string | undefined,
+            handle: metadata?.handle as string | undefined,
+            image: metadata?.image as string | undefined,
+            hasToken,
+          });
         } else {
           setDirectLookupBot(null);
         }
@@ -173,17 +207,41 @@ export default function BotsPage() {
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-4">
                 <p className="text-blue-400 text-sm">Direct lookup result (not in recent logs):</p>
               </div>
-              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:border-red-400/50 transition-all">
-                <Link href={`/bots/${directLookupBot.botId}`} className="block">
-                  <h3 className="text-xl font-bold text-white hover:text-red-400 transition-colors">
-                    Bot #{directLookupBot.botId.toString()}
-                  </h3>
-                  <p className="text-white/60 text-sm mt-2 font-mono text-xs">
-                    {directLookupBot.botAccount}
-                  </p>
-                  <p className="text-red-400 text-sm mt-3">View details →</p>
-                </Link>
-              </div>
+              <Link href={`/bots/${directLookupBot.botId}`}>
+                <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:border-red-400/50 transition-all cursor-pointer">
+                  <div className="flex items-start gap-4 mb-4">
+                    {directLookupBot.image && (
+                      <img 
+                        src={directLookupBot.image} 
+                        alt={directLookupBot.name || `Bot ${directLookupBot.botId}`}
+                        className="w-16 h-16 object-cover rounded-lg border border-white/10 flex-shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="text-xl font-bold text-white hover:text-red-400 transition-colors">
+                          {directLookupBot.name || `Bot #${directLookupBot.botId.toString()}`}
+                        </h3>
+                        {directLookupBot.hasToken && (
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 rounded">
+                            Token
+                          </span>
+                        )}
+                      </div>
+                      {directLookupBot.handle && (
+                        <p className="text-sm text-white/60 mt-1 font-mono">{directLookupBot.handle}</p>
+                      )}
+                      <p className="text-white/40 text-xs mt-2 font-mono break-all">
+                        {directLookupBot.botAccount}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-red-400 text-sm">View details →</p>
+                </div>
+              </Link>
             </div>
           )}
 
