@@ -337,7 +337,6 @@ This project meets Moltiverse hackathon requirements:
 - Monad integration (testnet execution)
 - Clear documentation
 
-### ✅ Token Track Requirements (Planned)
 ### ✅ Token Track Requirements (Implemented)
 - Nad.fun token deployment on Monad testnet via the production web UI
 - Token address is surfaced in the UI after creation (linked to the bot)

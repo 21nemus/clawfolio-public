@@ -33,6 +33,9 @@ export default function CreatePage() {
   const [description, setDescription] = useState('');
   const [strategyPrompt, setStrategyPrompt] = useState('');
   const [handle, setHandle] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
   const [operator, setOperator] = useState('');
   const [riskPreset, setRiskPreset] = useState<keyof typeof RISK_PRESETS>('balanced');
   const [pathTokenA, setPathTokenA] = useState('');
@@ -44,6 +47,34 @@ export default function CreatePage() {
   const [createdBotId, setCreatedBotId] = useState<bigint | null>(null);
   const [createdBotAccount, setCreatedBotAccount] = useState<`0x${string}` | null>(null);
 
+  const handleImageUpload = async () => {
+    if (!imageFile) return;
+    
+    try {
+      setImageUploading(true);
+      const formData = new FormData();
+      formData.append('image', imageFile);
+      
+      const res = await fetch('/api/nadfun/image', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!res.ok) {
+        throw new Error('Image upload failed');
+      }
+      
+      const data = await res.json();
+      setImageUrl(data.image_url || '');
+      setImageFile(null);
+    } catch (err) {
+      console.error('Image upload error:', err);
+      alert('Image upload failed. Try pasting a URL instead.');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
   const handleCreate = async () => {
     if (!config.botRegistry) {
       alert('BotRegistry address not configured');
@@ -54,6 +85,7 @@ export default function CreatePage() {
       name,
       description,
       strategyPrompt: strategyPrompt || undefined,
+      image: imageUrl || undefined,
       handle: handle || undefined,
     };
 
@@ -157,6 +189,8 @@ export default function CreatePage() {
               setName('');
               setDescription('');
               setStrategyPrompt('');
+              setImageUrl('');
+              setImageFile(null);
               setHandle('');
             }}
             className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-lg transition-colors"
@@ -208,6 +242,50 @@ export default function CreatePage() {
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 font-mono text-sm"
           />
           <p className="text-xs text-white/40 mt-1">This prompt will be read by your agent runner to guide trading decisions</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Agent Image (optional)</label>
+          <div className="space-y-3">
+            <div className="flex gap-3">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setImageFile(file);
+                    setImageUrl('');
+                  }
+                }}
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:bg-red-500 file:text-white file:cursor-pointer hover:file:bg-red-600"
+              />
+              <button
+                type="button"
+                onClick={handleImageUpload}
+                disabled={!imageFile || imageUploading}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:bg-white/10 disabled:text-white/40 text-white rounded-lg text-sm transition-colors"
+              >
+                {imageUploading ? 'Uploading...' : 'Upload'}
+              </button>
+            </div>
+            <div className="text-xs text-white/40">Or paste image URL:</div>
+            <input
+              type="text"
+              value={imageUrl}
+              onChange={(e) => {
+                setImageUrl(e.target.value);
+                setImageFile(null);
+              }}
+              placeholder="https://..."
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 text-sm"
+            />
+            {imageUrl && (
+              <div className="mt-2">
+                <img src={imageUrl} alt="Agent preview" className="w-24 h-24 object-cover rounded-lg border border-white/10" />
+              </div>
+            )}
+          </div>
         </div>
 
         <div>

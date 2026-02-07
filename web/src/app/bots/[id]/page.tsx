@@ -97,6 +97,18 @@ export default function BotDetailPage() {
             <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
               <h3 className="text-lg font-semibold mb-4 text-red-400">Identity & Strategy</h3>
               <div className="space-y-3 text-sm">
+                {metadata.image ? (
+                  <div className="mb-4">
+                    <img 
+                      src={metadata.image as string} 
+                      alt="Agent avatar" 
+                      className="w-32 h-32 object-cover rounded-lg border border-white/10"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                ) : null}
                 {metadata.name ? (
                   <div>
                     <span className="text-white/60">Name:</span>

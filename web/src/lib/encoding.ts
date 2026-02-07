@@ -5,8 +5,9 @@
 export function encodeMetadataURI(metadata: {
   name: string;
   description: string;
-  handle?: string;
+  strategyPrompt?: string;
   image?: string;
+  handle?: string;
   [key: string]: unknown;
 }): string {
   const json = JSON.stringify(metadata);

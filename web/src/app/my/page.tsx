@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { publicClient } from '@/lib/clients';
 import { BOT_REGISTRY_ABI } from '@/lib/abi';
 import { loadConfig } from '@/lib/config';
+import { decodeMetadataURI } from '@/lib/encoding';
 import { AddressLink } from '@/components/AddressLink';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -12,6 +13,9 @@ import { useRouter } from 'next/navigation';
 interface MyBot {
   botId: bigint;
   botAccount: `0x${string}` | null;
+  name?: string;
+  handle?: string;
+  image?: string;
 }
 
 export default function MyBotsPage() {
@@ -49,25 +53,43 @@ export default function MyBotsPage() {
           args: [address],
         }) as bigint[];
 
-        // Optionally fetch botAccountOf for each (minimal)
-        const botsWithAccounts = await Promise.all(
+        // Fetch botAccountOf + metadataURI for each (parallelized)
+        const botsWithData = await Promise.all(
           botIds.map(async (botId) => {
             if (!config.botRegistry) return { botId, botAccount: null };
             try {
-              const botAccount = await publicClient.readContract({
-                address: config.botRegistry,
-                abi: BOT_REGISTRY_ABI,
-                functionName: 'botAccountOf',
-                args: [botId],
-              }) as `0x${string}`;
-              return { botId, botAccount };
+              const [botAccount, metadataURI] = await Promise.all([
+                publicClient.readContract({
+                  address: config.botRegistry,
+                  abi: BOT_REGISTRY_ABI,
+                  functionName: 'botAccountOf',
+                  args: [botId],
+                }) as Promise<`0x${string}`>,
+                publicClient.readContract({
+                  address: config.botRegistry,
+                  abi: BOT_REGISTRY_ABI,
+                  functionName: 'metadataURI',
+                  args: [botId],
+                }) as Promise<string>,
+              ]);
+
+              // Decode metadata to extract identity
+              const metadata = decodeMetadataURI(metadataURI);
+              
+              return { 
+                botId, 
+                botAccount,
+                name: metadata?.name as string | undefined,
+                handle: metadata?.handle as string | undefined,
+                image: metadata?.image as string | undefined,
+              };
             } catch {
               return { botId, botAccount: null };
             }
           })
         );
 
-        setBots(botsWithAccounts);
+        setBots(botsWithData);
       } catch (err) {
         console.error('Failed to fetch your bots:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch your bots');
@@ -142,13 +164,26 @@ export default function MyBotsPage() {
               role="link"
               tabIndex={0}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div>
+              <div className="flex items-start gap-4 mb-4">
+                {bot.image && (
+                  <img 
+                    src={bot.image} 
+                    alt={bot.name || `Bot ${bot.botId}`}
+                    className="w-16 h-16 object-cover rounded-lg border border-white/10 flex-shrink-0"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                )}
+                <div className="flex-1">
                   <h3 className="text-xl font-bold text-white group-hover:text-red-400 transition-colors">
                     <Link href={`/bots/${bot.botId}`} className="hover:underline">
-                      Bot #{bot.botId.toString()}
+                      {bot.name || `Bot #${bot.botId.toString()}`}
                     </Link>
                   </h3>
+                  {bot.handle && (
+                    <p className="text-white/60 text-sm mt-1 font-mono">{bot.handle}</p>
+                  )}
                 </div>
               </div>
               
