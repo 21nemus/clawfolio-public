@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { decodeEventLog, parseEther, formatEther } from 'viem';
 import { uploadImage, uploadMetadata, mineSalt, getDeployFee, getInitialBuyAmountOut, getProgress } from '@/lib/nadfun/client';
@@ -66,9 +66,28 @@ export function TokenizePanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageUrlInput, setImageUrlInput] = useState('');
   const [useAgentAvatar, setUseAgentAvatar] = useState(false);
 
   const agentAvatarUrl = botMetadata?.image ? (botMetadata.image as string) : null;
+
+  // Prefill form data from bot metadata
+  useEffect(() => {
+    if (botMetadata && formData.name === '') {
+      const name = botMetadata.name as string || '';
+      const description = botMetadata.description as string || '';
+      const symbol = name 
+        ? name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) 
+        : '';
+      
+      setFormData((prev) => ({
+        ...prev,
+        name,
+        description,
+        symbol,
+      }));
+    }
+  }, [botMetadata]);
 
   // Load token progress if already tokenized
   const [progressLoading, setProgressLoading] = useState(false);
@@ -88,6 +107,15 @@ export function TokenizePanel({
   const handleUseAgentAvatar = () => {
     if (!agentAvatarUrl) return;
     setState((s) => ({ ...s, imageUri: agentAvatarUrl }));
+    setStep(2);
+  };
+
+  const handleUseImageUrl = () => {
+    if (!imageUrlInput || !imageUrlInput.startsWith('http')) {
+      setError('Please enter a valid image URL (https://...)');
+      return;
+    }
+    setState((s) => ({ ...s, imageUri: imageUrlInput }));
     setStep(2);
   };
 
@@ -368,6 +396,27 @@ export function TokenizePanel({
           >
             {loading ? 'Uploading...' : 'Upload Image'}
           </button>
+
+          <div className="text-center text-white/40 text-xs">
+            or paste an image URL:
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="https://..."
+              value={imageUrlInput}
+              onChange={(e) => setImageUrlInput(e.target.value)}
+              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 text-sm"
+            />
+            <button
+              onClick={handleUseImageUrl}
+              disabled={loading || !imageUrlInput}
+              className="bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-4 py-2 rounded text-sm"
+            >
+              Use URL →
+            </button>
+          </div>
         </div>
       )}
 

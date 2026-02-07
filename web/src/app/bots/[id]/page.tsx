@@ -89,15 +89,70 @@ export default function BotDetailPage() {
           return;
         }
 
-        // Construct minimal bot object (creator/operator will be fetched by useBotDetails)
+        // Attempt bounded log search for creation proof
+        let transactionHash: `0x${string}` = '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
+        let blockNumber: bigint = 0n;
+        let creator: `0x${string}` = '0x0000000000000000000000000000000000000000' as `0x${string}`;
+        let operator: `0x${string}` = '0x0000000000000000000000000000000000000000' as `0x${string}`;
+
+        try {
+          const latestBlock = await publicClient.getBlockNumber();
+          const CHUNK_SIZE = 100n;
+          const MAX_CHUNKS = 30; // 3000 blocks max
+          
+          let currentBlock = latestBlock;
+          let chunksScanned = 0;
+          let found = false;
+
+          while (chunksScanned < MAX_CHUNKS && currentBlock > config.startBlock && !found) {
+            const fromBlock = currentBlock - CHUNK_SIZE > config.startBlock 
+              ? currentBlock - CHUNK_SIZE 
+              : config.startBlock;
+
+            const logs = await publicClient.getLogs({
+              address: config.botRegistry,
+              event: {
+                type: 'event',
+                name: 'BotCreated',
+                inputs: [
+                  { type: 'uint256', indexed: true, name: 'botId' },
+                  { type: 'address', indexed: true, name: 'creator' },
+                  { type: 'address', indexed: false, name: 'botAccount' },
+                  { type: 'address', indexed: false, name: 'operator' },
+                  { type: 'string', indexed: false, name: 'metadataURI' },
+                ],
+              },
+              fromBlock,
+              toBlock: currentBlock,
+            });
+
+            for (const log of logs) {
+              if (log.args.botId === botId) {
+                transactionHash = log.transactionHash as `0x${string}`;
+                blockNumber = log.blockNumber;
+                creator = log.args.creator as `0x${string}`;
+                operator = log.args.operator as `0x${string}`;
+                found = true;
+                break;
+              }
+            }
+
+            currentBlock = fromBlock - 1n;
+            chunksScanned++;
+          }
+        } catch (err) {
+          console.log('Bounded log search failed, using placeholders:', err);
+        }
+
+        // Construct bot object (with creation proof if found)
         setBot({
           botId,
           botAccount,
-          creator: '0x0000000000000000000000000000000000000000' as `0x${string}`, // Placeholder, will be populated by details
-          operator: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+          creator,
+          operator,
           metadataURI,
-          transactionHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
-          blockNumber: 0n,
+          transactionHash,
+          blockNumber,
         });
         setBotNotFound(false);
       } catch (err) {
@@ -183,7 +238,12 @@ export default function BotDetailPage() {
 
           {metadata ? (
             <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-              <h3 className="text-lg font-semibold mb-4 text-red-400">Identity & Strategy</h3>
+              <div className="flex items-start justify-between mb-4">
+                <h3 className="text-lg font-semibold text-red-400">Identity & Strategy</h3>
+                {isCreator && (
+                  <span className="text-xs text-white/40 italic">Identity is immutable after creation</span>
+                )}
+              </div>
               <div className="space-y-3 text-sm">
                 {metadata.image ? (
                   <div className="mb-4">
