@@ -67,7 +67,7 @@ export default function HomePage() {
       </div>
 
       <div className="mt-16 text-center">
-        <Link href="/my" className="text-white/60 hover:text-white transition-colors">
+        <Link href="/my" className="text-white/60 hover:text-white transition-colors text-sm">
           My Bots
         </Link>
       </div>

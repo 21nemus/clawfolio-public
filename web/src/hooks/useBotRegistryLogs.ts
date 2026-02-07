@@ -13,6 +13,11 @@ export interface BotCreatedEvent {
   blockNumber: bigint;
 }
 
+const CHUNK_SIZE = 100n;
+const MAX_EVENTS = 200;
+const MAX_CHUNKS = 50; // safety cap (50 chunks * 100 blocks = 5000 blocks max lookback)
+const LOOKBACK_WINDOW = 5000n; // recent block lookback for fast demo
+
 export function useBotRegistryLogs(filterAddress?: `0x${string}`) {
   const [logs, setLogs] = useState<BotCreatedEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,24 +38,53 @@ export function useBotRegistryLogs(filterAddress?: `0x${string}`) {
         setLoading(true);
         setError(null);
 
-        const rawLogs = await publicClient.getLogs({
-          address: config.botRegistry,
-          event: {
-            type: 'event',
-            name: 'BotCreated',
-            inputs: [
-              { name: 'botId', type: 'uint256', indexed: true },
-              { name: 'botAccount', type: 'address', indexed: true },
-              { name: 'creator', type: 'address', indexed: true },
-              { name: 'operator', type: 'address', indexed: false },
-              { name: 'metadataURI', type: 'string', indexed: false },
-            ],
-          },
-          fromBlock: config.startBlock,
-          toBlock: 'latest',
-        });
+        // Get latest block number
+        const latestBlock = await publicClient.getBlockNumber();
+        
+        // Calculate lookback start (recent window for fast demo)
+        const lookbackStart = latestBlock - LOOKBACK_WINDOW;
+        const effectiveStartBlock = lookbackStart > config.startBlock ? lookbackStart : config.startBlock;
+        
+        // Bounded backwards scan in 100-block chunks
+        const allRawLogs: any[] = [];
+        let endBlock = latestBlock;
+        let chunksProcessed = 0;
 
-        let parsedLogs = rawLogs.map((log) => ({
+        while (chunksProcessed < MAX_CHUNKS && allRawLogs.length < MAX_EVENTS) {
+          const fromBlock = endBlock - CHUNK_SIZE + 1n > effectiveStartBlock 
+            ? endBlock - CHUNK_SIZE + 1n 
+            : effectiveStartBlock;
+
+          if (fromBlock > endBlock) break;
+
+          const chunkLogs = await publicClient.getLogs({
+            address: config.botRegistry,
+            event: {
+              type: 'event',
+              name: 'BotCreated',
+              inputs: [
+                { name: 'botId', type: 'uint256', indexed: true },
+                { name: 'botAccount', type: 'address', indexed: true },
+                { name: 'creator', type: 'address', indexed: true },
+                { name: 'operator', type: 'address', indexed: false },
+                { name: 'metadataURI', type: 'string', indexed: false },
+              ],
+            },
+            fromBlock,
+            toBlock: endBlock,
+          });
+
+          allRawLogs.push(...chunkLogs);
+          chunksProcessed++;
+
+          // Stop if we reached effective start block
+          if (fromBlock <= effectiveStartBlock) break;
+
+          // Move to next chunk
+          endBlock = fromBlock - 1n;
+        }
+
+        let parsedLogs = allRawLogs.map((log) => ({
           botId: log.args.botId!,
           botAccount: log.args.botAccount!,
           creator: log.args.creator!,
@@ -69,6 +103,11 @@ export function useBotRegistryLogs(filterAddress?: `0x${string}`) {
 
         // Sort by block number descending (newest first)
         parsedLogs.sort((a, b) => Number(b.blockNumber - a.blockNumber));
+
+        // Limit to MAX_EVENTS
+        if (parsedLogs.length > MAX_EVENTS) {
+          parsedLogs = parsedLogs.slice(0, MAX_EVENTS);
+        }
 
         setLogs(parsedLogs);
       } catch (err) {

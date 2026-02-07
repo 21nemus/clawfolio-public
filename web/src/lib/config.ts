@@ -21,8 +21,41 @@ function getEnv(key: string, defaultValue?: string): string | undefined {
   if (typeof window === 'undefined') {
     return process.env[key] || defaultValue;
   }
-  // Client-side: only NEXT_PUBLIC_ vars are available
-  return (process.env[key] as string | undefined) || defaultValue;
+  /**
+   * Client-side: Next.js inlines `process.env.NEXT_PUBLIC_*` at build-time.
+   * Dynamic access like `process.env[key]` can be undefined in the browser,
+   * so we map the small set of supported keys to static references.
+   */
+  switch (key) {
+    case 'NEXT_PUBLIC_CHAIN_ID':
+      return process.env.NEXT_PUBLIC_CHAIN_ID || defaultValue;
+    case 'NEXT_PUBLIC_RPC_HTTP_URL':
+      return process.env.NEXT_PUBLIC_RPC_HTTP_URL || defaultValue;
+    case 'NEXT_PUBLIC_RPC_URL':
+      return process.env.NEXT_PUBLIC_RPC_URL || defaultValue;
+    case 'NEXT_PUBLIC_BOT_REGISTRY':
+      return process.env.NEXT_PUBLIC_BOT_REGISTRY || defaultValue;
+    case 'NEXT_PUBLIC_BOT_REGISTRY_ADDR':
+      return process.env.NEXT_PUBLIC_BOT_REGISTRY_ADDR || defaultValue;
+    case 'NEXT_PUBLIC_EXPLORER_TX_URL_PREFIX':
+      return process.env.NEXT_PUBLIC_EXPLORER_TX_URL_PREFIX || defaultValue;
+    case 'NEXT_PUBLIC_EXPLORER_ADDRESS_URL_PREFIX':
+      return process.env.NEXT_PUBLIC_EXPLORER_ADDRESS_URL_PREFIX || defaultValue;
+    case 'NEXT_PUBLIC_EXPLORER_BLOCK_URL_PREFIX':
+      return process.env.NEXT_PUBLIC_EXPLORER_BLOCK_URL_PREFIX || defaultValue;
+    case 'NEXT_PUBLIC_START_BLOCK':
+      return process.env.NEXT_PUBLIC_START_BLOCK || defaultValue;
+    case 'NEXT_PUBLIC_OPENCLAW_BASE_URL':
+      return process.env.NEXT_PUBLIC_OPENCLAW_BASE_URL || defaultValue;
+    case 'NEXT_PUBLIC_MOLTBOOK_ENABLED':
+      return process.env.NEXT_PUBLIC_MOLTBOOK_ENABLED || defaultValue;
+    case 'NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID':
+      return process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || defaultValue;
+    case 'NEXT_PUBLIC_DEMO_CREATOR_ADDR':
+      return process.env.NEXT_PUBLIC_DEMO_CREATOR_ADDR || defaultValue;
+    default:
+      return defaultValue;
+  }
 }
 
 function parseAddress(value: string | undefined): `0x${string}` | null {
@@ -41,7 +74,11 @@ export function loadConfig(): AppConfig {
   // Support both NEXT_PUBLIC_RPC_HTTP_URL and NEXT_PUBLIC_RPC_URL (alias)
   const rpcHttpUrl = getEnv('NEXT_PUBLIC_RPC_HTTP_URL') || getEnv('NEXT_PUBLIC_RPC_URL') || 'https://testnet-rpc.monad.xyz';
   // Support both NEXT_PUBLIC_BOT_REGISTRY and NEXT_PUBLIC_BOT_REGISTRY_ADDR (alias)
-  const botRegistry = parseAddress(getEnv('NEXT_PUBLIC_BOT_REGISTRY')) || parseAddress(getEnv('NEXT_PUBLIC_BOT_REGISTRY_ADDR'));
+  const rawBotRegistry = getEnv('NEXT_PUBLIC_BOT_REGISTRY');
+  const rawBotRegistryAddr = getEnv('NEXT_PUBLIC_BOT_REGISTRY_ADDR');
+  const parsedBotRegistry = parseAddress(rawBotRegistry);
+  const parsedBotRegistryAddr = parseAddress(rawBotRegistryAddr);
+  const botRegistry = parsedBotRegistry || parsedBotRegistryAddr;
   const explorerTxUrlPrefix = getEnv('NEXT_PUBLIC_EXPLORER_TX_URL_PREFIX', 'https://monadvision.com/tx/') || 'https://monadvision.com/tx/';
   const explorerAddressUrlPrefix = getEnv('NEXT_PUBLIC_EXPLORER_ADDRESS_URL_PREFIX', 'https://monadvision.com/address/') || 'https://monadvision.com/address/';
   const explorerBlockUrlPrefix = getEnv('NEXT_PUBLIC_EXPLORER_BLOCK_URL_PREFIX', 'https://monadvision.com/block/') || 'https://monadvision.com/block/';

@@ -1,5 +1,6 @@
 'use client';
 
+import { useParams } from 'next/navigation';
 import { useBotRegistryLogs } from '@/hooks/useBotRegistryLogs';
 import { useBotDetails, LIFECYCLE_STATES } from '@/hooks/useBotDetails';
 import { useBotEvents } from '@/hooks/useBotEvents';
@@ -19,8 +20,9 @@ import { PostsFeed } from '@/components/PostsFeed';
 import { StatusChip } from '@/components/StatusChip';
 import { CopyButton } from '@/components/CopyButton';
 
-export default function BotDetailPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default function BotDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
   const { logs, loading: logsLoading } = useBotRegistryLogs();
   const { address } = useAccount();
   

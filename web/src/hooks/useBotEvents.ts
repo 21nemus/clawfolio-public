@@ -59,6 +59,9 @@ export type BotEvent =
       blockNumber: bigint;
     };
 
+const CHUNK_SIZE = 100n;
+const LOOKBACK_WINDOW = 5000n; // recent block lookback for fast demo
+
 export function useBotEvents(botAccountAddress: `0x${string}` | null | undefined) {
   const [events, setEvents] = useState<BotEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,8 +81,43 @@ export function useBotEvents(botAccountAddress: `0x${string}` | null | undefined
         setError(null);
 
         const config = loadConfig();
+        
+        // Get latest block number
+        const latestBlock = await publicClient.getBlockNumber();
+        
+        // Calculate lookback start (recent window for fast demo)
+        const lookbackStart = latestBlock - LOOKBACK_WINDOW;
+        const effectiveStartBlock = lookbackStart > config.startBlock ? lookbackStart : config.startBlock;
 
-        // Fetch multiple event types in parallel
+        // Helper to fetch logs in chunks
+        const fetchLogsChunked = async (event: any) => {
+          const allLogs: any[] = [];
+          let endBlock = latestBlock;
+          
+          while (endBlock >= effectiveStartBlock) {
+            const fromBlock = endBlock - CHUNK_SIZE + 1n > effectiveStartBlock 
+              ? endBlock - CHUNK_SIZE + 1n 
+              : effectiveStartBlock;
+
+            if (fromBlock > endBlock) break;
+
+            const chunkLogs = await publicClient.getLogs({
+              address: botAccountAddress,
+              event,
+              fromBlock,
+              toBlock: endBlock,
+            });
+
+            allLogs.push(...chunkLogs);
+
+            if (fromBlock <= effectiveStartBlock) break;
+            endBlock = fromBlock - 1n;
+          }
+          
+          return allLogs;
+        };
+
+        // Fetch multiple event types in parallel with chunking
         const [
           tradeExecutedLogs,
           depositedLogs,
@@ -88,42 +126,12 @@ export function useBotEvents(botAccountAddress: `0x${string}` | null | undefined
           pausedUpdatedLogs,
           operatorUpdatedLogs,
         ] = await Promise.all([
-          publicClient.getLogs({
-            address: botAccountAddress,
-            event: BotAccountABI.find((item) => item.type === 'event' && item.name === 'TradeExecuted')!,
-            fromBlock: config.startBlock,
-            toBlock: 'latest',
-          }),
-          publicClient.getLogs({
-            address: botAccountAddress,
-            event: BotAccountABI.find((item) => item.type === 'event' && item.name === 'Deposited')!,
-            fromBlock: config.startBlock,
-            toBlock: 'latest',
-          }),
-          publicClient.getLogs({
-            address: botAccountAddress,
-            event: BotAccountABI.find((item) => item.type === 'event' && item.name === 'Withdrawn')!,
-            fromBlock: config.startBlock,
-            toBlock: 'latest',
-          }),
-          publicClient.getLogs({
-            address: botAccountAddress,
-            event: BotAccountABI.find((item) => item.type === 'event' && item.name === 'LifecycleChanged')!,
-            fromBlock: config.startBlock,
-            toBlock: 'latest',
-          }),
-          publicClient.getLogs({
-            address: botAccountAddress,
-            event: BotAccountABI.find((item) => item.type === 'event' && item.name === 'PausedUpdated')!,
-            fromBlock: config.startBlock,
-            toBlock: 'latest',
-          }),
-          publicClient.getLogs({
-            address: botAccountAddress,
-            event: BotAccountABI.find((item) => item.type === 'event' && item.name === 'OperatorUpdated')!,
-            fromBlock: config.startBlock,
-            toBlock: 'latest',
-          }),
+          fetchLogsChunked(BotAccountABI.find((item) => item.type === 'event' && item.name === 'TradeExecuted')!),
+          fetchLogsChunked(BotAccountABI.find((item) => item.type === 'event' && item.name === 'Deposited')!),
+          fetchLogsChunked(BotAccountABI.find((item) => item.type === 'event' && item.name === 'Withdrawn')!),
+          fetchLogsChunked(BotAccountABI.find((item) => item.type === 'event' && item.name === 'LifecycleChanged')!),
+          fetchLogsChunked(BotAccountABI.find((item) => item.type === 'event' && item.name === 'PausedUpdated')!),
+          fetchLogsChunked(BotAccountABI.find((item) => item.type === 'event' && item.name === 'OperatorUpdated')!),
         ]);
 
         const parsedEvents: BotEvent[] = [];

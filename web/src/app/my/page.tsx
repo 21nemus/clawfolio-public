@@ -1,12 +1,83 @@
 'use client';
 
 import { useAccount } from 'wagmi';
-import { useBotRegistryLogs } from '@/hooks/useBotRegistryLogs';
-import { BotCard } from '@/components/BotCard';
+import { useEffect, useState } from 'react';
+import { publicClient } from '@/lib/clients';
+import { BOT_REGISTRY_ABI } from '@/lib/abi';
+import { loadConfig } from '@/lib/config';
+import { AddressLink } from '@/components/AddressLink';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+interface MyBot {
+  botId: bigint;
+  botAccount: `0x${string}` | null;
+}
 
 export default function MyBotsPage() {
   const { address, isConnected } = useAccount();
-  const { logs, loading, error } = useBotRegistryLogs(address);
+  const [bots, setBots] = useState<MyBot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isConnected || !address) {
+      setBots([]);
+      setLoading(false);
+      return;
+    }
+
+    const fetchMyBots = async () => {
+      const config = loadConfig();
+      
+      if (!config.botRegistry) {
+        setError('BotRegistry address not configured');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Direct contract call: getBotsByCreator
+        const botIds = await publicClient.readContract({
+          address: config.botRegistry,
+          abi: BOT_REGISTRY_ABI,
+          functionName: 'getBotsByCreator',
+          args: [address],
+        }) as bigint[];
+
+        // Optionally fetch botAccountOf for each (minimal)
+        const botsWithAccounts = await Promise.all(
+          botIds.map(async (botId) => {
+            if (!config.botRegistry) return { botId, botAccount: null };
+            try {
+              const botAccount = await publicClient.readContract({
+                address: config.botRegistry,
+                abi: BOT_REGISTRY_ABI,
+                functionName: 'botAccountOf',
+                args: [botId],
+              }) as `0x${string}`;
+              return { botId, botAccount };
+            } catch {
+              return { botId, botAccount: null };
+            }
+          })
+        );
+
+        setBots(botsWithAccounts);
+      } catch (err) {
+        console.error('Failed to fetch your bots:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch your bots');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMyBots();
+  }, [address, isConnected]);
 
   if (!isConnected) {
     return (
@@ -41,7 +112,7 @@ export default function MyBotsPage() {
         <div className="text-center py-12">
           <p className="text-white/60">Loading your bots...</p>
         </div>
-      ) : logs.length === 0 ? (
+      ) : bots.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-white/60 mb-4">You haven't created any bots yet.</p>
           <a
@@ -53,8 +124,43 @@ export default function MyBotsPage() {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {logs.map((bot) => (
-            <BotCard key={bot.botId.toString()} bot={bot} />
+          {bots.map((bot) => (
+            <div
+              key={bot.botId.toString()}
+              className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:border-red-400/50 transition-all cursor-pointer group"
+              onClick={(e) => {
+                if (!(e.target as HTMLElement).closest('a')) {
+                  router.push(`/bots/${bot.botId}`);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  router.push(`/bots/${bot.botId}`);
+                }
+              }}
+              role="link"
+              tabIndex={0}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-white group-hover:text-red-400 transition-colors">
+                    <Link href={`/bots/${bot.botId}`} className="hover:underline">
+                      Bot #{bot.botId.toString()}
+                    </Link>
+                  </h3>
+                </div>
+              </div>
+              
+              <div className="space-y-2 text-sm">
+                {bot.botAccount && (
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Account:</span>
+                    <AddressLink address={bot.botAccount} />
+                  </div>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       )}
