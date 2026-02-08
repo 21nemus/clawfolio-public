@@ -206,7 +206,10 @@ export default function BotsPage() {
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
-          <p className="text-red-400">{error}</p>
+          <p className="text-red-400 mb-2">{error}</p>
+          <p className="text-white/60 text-sm">
+            Tipp: Suche nach Bot ID funktioniert weiterhin (direkte Registry-Abfrage).
+          </p>
         </div>
       )}
 
@@ -268,9 +271,13 @@ export default function BotsPage() {
           {filteredLogs.length === 0 && !directLookupBot && !lookupLoading ? (
             <div className="text-center py-12">
               <p className="text-white/60">
-                {searchQuery ? 'No bots match your search.' : 'No bots found. Be the first to create one!'}
+                {error 
+                  ? 'Log queries nicht verfügbar. Verwende Bot ID Suche für direkte Abfrage.' 
+                  : searchQuery 
+                    ? 'No bots match your search.' 
+                    : 'No bots found. Be the first to create one!'}
               </p>
-              {searchQuery && /^\d+$/.test(searchQuery.trim()) && (
+              {searchQuery && /^\d+$/.test(searchQuery.trim()) && !error && (
                 <p className="text-white/40 text-sm mt-2">
                   Bot #{searchQuery} not found or does not exist.
                 </p>

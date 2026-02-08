@@ -13,7 +13,7 @@ export interface BotCreatedEvent {
   blockNumber: bigint;
 }
 
-const CHUNK_SIZE = 500n; // Increased from 100n for fewer requests
+const MAX_LOG_RANGE = 100n; // Monad RPC limit: eth_getLogs limited to 100 blocks
 const MAX_EVENTS = 200;
 const MAX_CHUNKS = 50; // safety cap
 const LOOKBACK_WINDOW = 5000n; // recent block lookback for fast queries
@@ -82,8 +82,9 @@ export function useBotRegistryLogs(filterAddress?: `0x${string}`) {
           let chunksProcessed = 0;
 
           while (chunksProcessed < MAX_CHUNKS && allRawLogs.length < MAX_EVENTS && !cancelled) {
-            const fromBlock = endBlock - CHUNK_SIZE + 1n > effectiveStartBlock 
-              ? endBlock - CHUNK_SIZE + 1n 
+            // Respect RPC limit: max 100 blocks per query
+            const fromBlock = endBlock - (MAX_LOG_RANGE - 1n) > effectiveStartBlock 
+              ? endBlock - (MAX_LOG_RANGE - 1n)
               : effectiveStartBlock;
 
             if (fromBlock > endBlock) break;
@@ -150,7 +151,11 @@ export function useBotRegistryLogs(filterAddress?: `0x${string}`) {
       } catch (err) {
         console.error('Failed to fetch BotCreated logs:', err);
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch logs');
+          // User-friendly error message
+          const errorMsg = err instanceof Error && err.message.includes('limited to a 100 range')
+            ? 'RPC limitiert eth_getLogs auf 100 Blöcke. Bitte später erneut versuchen.'
+            : err instanceof Error ? err.message : 'Failed to fetch logs';
+          setError(errorMsg);
         }
       } finally {
         if (!cancelled) {

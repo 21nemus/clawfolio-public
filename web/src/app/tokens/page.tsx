@@ -25,8 +25,34 @@ export default function TokensPage() {
   const [tokens, setTokens] = useState<TokenizedBot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const appConfig = loadConfig();
+
+  // Filter tokens based on search
+  const filteredTokens = tokens.filter((token) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      token.botId.toString().includes(query) ||
+      token.tokenAddress.toLowerCase().includes(query) ||
+      token.name?.toLowerCase().includes(query) ||
+      token.handle?.toLowerCase().includes(query)
+    );
+  });
+
+  // Sort tokens: by progress desc (if available), then by botId desc
+  const sortedTokens = [...filteredTokens].sort((a, b) => {
+    // If both have progress, sort by progress desc
+    if (a.progress !== undefined && b.progress !== undefined) {
+      return Number(b.progress - a.progress);
+    }
+    // If only one has progress, prioritize it
+    if (a.progress !== undefined) return -1;
+    if (b.progress !== undefined) return 1;
+    // Otherwise sort by botId desc
+    return Number(b.botId - a.botId);
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -202,8 +228,23 @@ export default function TokensPage() {
         <p className="text-white/60">All launched tokens on Nad.fun ({tokens.length} total)</p>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {tokens.map((token) => (
+      <div className="mb-6">
+        <input
+          type="text"
+          placeholder="Search by bot ID, token address, name, or handle..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
+        />
+      </div>
+
+      {filteredTokens.length === 0 && searchQuery ? (
+        <div className="text-center py-12">
+          <p className="text-white/60">No tokens match your search.</p>
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sortedTokens.map((token) => (
           <div
             key={token.botId.toString()}
             className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:border-red-400/50 transition-all"
@@ -281,10 +322,11 @@ export default function TokensPage() {
               </div>
             </div>
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {loading && (
+      {loading && tokens.length > 0 && (
         <div className="mt-6 text-center">
           <p className="text-white/40 text-sm">Loading more tokens...</p>
         </div>

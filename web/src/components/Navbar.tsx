@@ -46,6 +46,14 @@ export function Navbar() {
               >
                 My Bots
               </Link>
+              <Link 
+                href="/tokens" 
+                className={`text-sm font-medium transition-colors hover:text-red-400 ${
+                  isActive('/tokens') ? 'text-red-400' : 'text-white/70'
+                }`}
+              >
+                Tokens
+              </Link>
             </div>
           </div>
 
