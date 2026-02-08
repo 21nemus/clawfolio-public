@@ -5,10 +5,22 @@ import { BotCard } from '@/components/BotCard';
 import { useState, useEffect } from 'react';
 import { publicClient } from '@/lib/clients';
 import { BotAccountABI } from '@/abi/BotAccount';
+import { formatEther } from 'viem';
 import Link from 'next/link';
+
+const LIFECYCLE_STATES = {
+  0: 'Draft',
+  1: 'Stealth',
+  2: 'Public',
+  3: 'Graduated',
+  4: 'Retired',
+} as const;
 
 interface TopBot extends BotWithMetadata {
   nonce?: bigint;
+  lifecycleState?: number;
+  paused?: boolean;
+  balance?: bigint;
 }
 
 export default function BotsPage() {
@@ -55,15 +67,28 @@ export default function BotsPage() {
           const results = await Promise.all(
             batch.map(async (bot) => {
               try {
-                const nonce = await publicClient.readContract({
-                  address: bot.botAccount,
-                  abi: BotAccountABI,
-                  functionName: 'nonce',
-                }) as bigint;
+                const [nonce, lifecycleState, paused, balance] = await Promise.all([
+                  publicClient.readContract({
+                    address: bot.botAccount,
+                    abi: BotAccountABI,
+                    functionName: 'nonce',
+                  }) as Promise<bigint>,
+                  publicClient.readContract({
+                    address: bot.botAccount,
+                    abi: BotAccountABI,
+                    functionName: 'lifecycleState',
+                  }) as Promise<number>,
+                  publicClient.readContract({
+                    address: bot.botAccount,
+                    abi: BotAccountABI,
+                    functionName: 'paused',
+                  }) as Promise<boolean>,
+                  publicClient.getBalance({ address: bot.botAccount }),
+                ]);
 
-                return { ...bot, nonce };
+                return { ...bot, nonce, lifecycleState, paused, balance };
               } catch {
-                return { ...bot, nonce: 0n };
+                return { ...bot, nonce: 0n, lifecycleState: 0, paused: false, balance: 0n };
               }
             })
           );
@@ -73,16 +98,35 @@ export default function BotsPage() {
           }
         }
 
-        // Sort by nonce desc, then hasToken, then botId desc
+        // Sort by: lifecycleState (higher is better), nonce desc, hasToken, balance desc, botId desc
         rankedBots.sort((a, b) => {
+          // Prefer higher lifecycle states (Public=2, Graduated=3 > Draft=0, Stealth=1)
+          const aState = a.lifecycleState || 0;
+          const bState = b.lifecycleState || 0;
+          if (aState !== bState) {
+            return bState - aState;
+          }
+          
+          // Then by nonce desc
           const aNonce = a.nonce || 0n;
           const bNonce = b.nonce || 0n;
           if (aNonce !== bNonce) {
             return Number(bNonce - aNonce);
           }
+          
+          // Then by tokenization
           if (a.hasToken !== b.hasToken) {
             return a.hasToken ? -1 : 1;
           }
+          
+          // Then by balance desc
+          const aBalance = a.balance || 0n;
+          const bBalance = b.balance || 0n;
+          if (aBalance !== bBalance) {
+            return Number(bBalance - aBalance);
+          }
+          
+          // Finally by botId desc
           return Number(b.botId - a.botId);
         });
 
@@ -174,9 +218,28 @@ export default function BotsPage() {
                           {bot.handle && (
                             <p className="text-xs text-white/60 font-mono truncate">{bot.handle}</p>
                           )}
-                          <div className="mt-2 flex items-center gap-3 text-xs text-white/40">
-                            <span>Trades: {bot.nonce?.toString() || '0'}</span>
-                            <span>ID: {bot.botId.toString()}</span>
+                          <div className="mt-2 space-y-1">
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-white/60">Trades:</span>
+                              <span className="text-white font-medium">{bot.nonce?.toString() || '0'}</span>
+                            </div>
+                            {bot.lifecycleState !== undefined && (
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="text-white/60">State:</span>
+                                <span className="text-white/80">{LIFECYCLE_STATES[bot.lifecycleState as keyof typeof LIFECYCLE_STATES]}</span>
+                                {bot.paused && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 text-xs bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded">
+                                    Paused
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {bot.balance !== undefined && bot.balance > 0n && (
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="text-white/60">Balance:</span>
+                                <span className="text-white/80">{parseFloat(formatEther(bot.balance)).toFixed(2)} MON</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

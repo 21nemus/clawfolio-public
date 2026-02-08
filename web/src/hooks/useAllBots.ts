@@ -48,14 +48,14 @@ export function useAllBots() {
         const allBots: BotWithMetadata[] = [];
         const CONCURRENCY = 5;
 
-        // Iterate bot IDs in batches
-        for (let i = 1n; i <= botCount; i++) {
+        // Iterate bot IDs in batches (starting from 0)
+        for (let i = 0n; i < botCount; i++) {
           if (cancelled) break;
 
           const batch: Promise<void>[] = [];
-          const batchSize = Math.min(Number(CONCURRENCY), Number(botCount - i + 1n));
+          const batchSize = Math.min(Number(CONCURRENCY), Number(botCount - i));
 
-          for (let j = 0; j < batchSize && i + BigInt(j) <= botCount; j++) {
+          for (let j = 0; j < batchSize && i + BigInt(j) < botCount; j++) {
             const botId = i + BigInt(j);
             
             batch.push((async () => {

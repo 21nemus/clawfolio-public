@@ -18,6 +18,7 @@ import { DepositControl } from '@/components/actions/DepositControl';
 import { WithdrawControl } from '@/components/actions/WithdrawControl';
 import { TokenizePanel } from '@/components/actions/TokenizePanel';
 import { MoltbookPostPanel } from '@/components/actions/MoltbookPostPanel';
+import { QuickActionsPanel } from '@/components/actions/QuickActionsPanel';
 import { PerformancePanel } from '@/components/PerformancePanel';
 import { PostsFeed } from '@/components/PostsFeed';
 import { StatusChip } from '@/components/StatusChip';
@@ -443,6 +444,21 @@ export default function BotDetailPage() {
             <h3 className="text-lg font-semibold mb-4 text-red-400">Deposit Funds</h3>
             <DepositControl botAccount={bot.botAccount} userAddress={address!} />
           </div>
+
+          {/* Quick Actions Panel (enhanced UX) */}
+          {isCreator && (
+            <QuickActionsPanel
+              botId={bot.botId}
+              botAccount={bot.botAccount}
+              creator={details.creator}
+              operator={details.operator}
+              lifecycleState={details.lifecycleState}
+              paused={details.paused}
+              isCreator={!!isCreator}
+              isOperator={false}
+              userAddress={address}
+            />
+          )}
 
           <PerformancePanel 
             botAccount={bot.botAccount}
