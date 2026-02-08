@@ -118,52 +118,50 @@ export function PerformancePanel({ botAccount, events, explorerAddressUrlPrefix 
   }, [botAccount, tokenKey]);
 
   return (
-    <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-      <h3 className="text-lg font-semibold mb-4 text-red-400">📊 Performance Dashboard</h3>
+    <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-8">
+      <h3 className="text-2xl font-bold mb-6 text-white">Performance Dashboard</h3>
 
       {loading && (
-        <p className="text-white/60 text-sm">Loading portfolio data...</p>
+        <p className="text-white/50 text-sm">Loading portfolio data...</p>
       )}
 
       {!loading && (
         <div className="space-y-6">
           {/* Portfolio Snapshot */}
           <div>
-            <h4 className="text-md font-semibold text-white mb-3">Portfolio Snapshot</h4>
+            <h4 className="text-xs uppercase tracking-wide text-white/40 font-medium mb-4">Portfolio Snapshot</h4>
             <div className="space-y-2">
               {/* Native MON */}
-              <div className="flex items-center justify-between bg-white/5 rounded p-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-medium">MON (native)</span>
-                </div>
-                <span className="text-white/80 font-mono">
+              <div className="flex items-center justify-between bg-white/[0.03] rounded-lg p-3">
+                <span className="text-sm text-white/60">MON (native)</span>
+                <span className="text-white text-lg font-bold tabular-nums">
                   {nativeBalance !== null ? formatTokenAmount(nativeBalance) : '...'}
                 </span>
               </div>
 
               {/* ERC20 tokens */}
               {tokenBalances.map((token) => (
-                <div key={token.address} className="flex items-center justify-between bg-white/5 rounded p-3">
+                <div key={token.address} className="flex items-center justify-between bg-white/[0.03] rounded-lg p-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-white font-medium">{token.symbol}</span>
+                    <span className="text-sm text-white/60">{token.symbol}</span>
                     <AddressLink address={token.address as `0x${string}`} />
                   </div>
-                  <span className="text-white/80 font-mono">
+                  <span className="text-white text-lg font-bold tabular-nums">
                     {formatTokenAmount(token.balance, token.decimals)}
                   </span>
                 </div>
               ))}
 
               {tokenBalances.length === 0 && nativeBalance === 0n && (
-                <p className="text-white/40 text-sm">No tokens in portfolio yet</p>
+                <p className="text-white/30 text-sm">No tokens in portfolio yet</p>
               )}
             </div>
           </div>
 
           {/* Net Flows */}
           {Object.keys(analytics.netFlowsByToken).length > 0 && (
-            <div>
-              <h4 className="text-md font-semibold text-white mb-3">Net Flows (Deposits - Withdrawals)</h4>
+            <div className="pt-4 border-t border-white/5">
+              <h4 className="text-xs uppercase tracking-wide text-white/40 font-medium mb-4">Net Flows</h4>
               <div className="space-y-2">
                 {Object.entries(analytics.netFlowsByToken).map(([tokenAddr, netFlow]) => {
                   const tokenInfo = tokenBalances.find((t) => t.address.toLowerCase() === tokenAddr);
@@ -173,12 +171,12 @@ export function PerformancePanel({ botAccount, events, explorerAddressUrlPrefix 
                   const isZero = netFlow === 0n;
 
                   return (
-                    <div key={tokenAddr} className="flex items-center justify-between bg-white/5 rounded p-3">
+                    <div key={tokenAddr} className="flex items-center justify-between bg-white/[0.03] rounded-lg p-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-white font-medium">{symbol}</span>
+                        <span className="text-sm text-white/60">{symbol}</span>
                         <AddressLink address={tokenAddr as `0x${string}`} />
                       </div>
-                      <span className={`font-mono ${isZero ? 'text-white/60' : isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                      <span className={`font-mono text-lg font-bold tabular-nums ${isZero ? 'text-white/50' : isPositive ? 'text-green-400' : 'text-red-400'}`}>
                         {isPositive ? '+' : ''}{formatTokenAmount(netFlow, decimals)}
                       </span>
                     </div>
@@ -189,44 +187,44 @@ export function PerformancePanel({ botAccount, events, explorerAddressUrlPrefix 
           )}
 
           {/* Trading Summary */}
-          <div>
-            <h4 className="text-md font-semibold text-white mb-3">Trading Summary</h4>
-            <div className="space-y-3">
+          <div className="pt-4 border-t border-white/5">
+            <h4 className="text-xs uppercase tracking-wide text-white/40 font-medium mb-4">Trading Summary</h4>
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-white/60">Total Trades</span>
-                <span className="text-white font-semibold">{analytics.tradeStats.tradeCount}</span>
+                <span className="text-xs text-white/50">Total Trades</span>
+                <span className="text-white text-3xl font-bold tabular-nums">{analytics.tradeStats.tradeCount}</span>
               </div>
 
               {analytics.tradeStats.lastTrade && (
-                <div className="flex items-center justify-between">
-                  <span className="text-white/60">Last Trade</span>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-xs text-white/50">Last Trade</span>
                   <TxLink hash={analytics.tradeStats.lastTrade.transactionHash} />
                 </div>
               )}
 
               {analytics.tradeStats.tradeCount === 0 && (
-                <p className="text-white/40 text-sm">No trades executed yet</p>
+                <p className="text-white/30 text-sm">No trades executed yet</p>
               )}
 
               {/* Top trading paths */}
               {Object.keys(analytics.tradeStats.volumeByPath).length > 0 && (
-                <div className="mt-4">
-                  <div className="text-sm text-white/60 mb-2">Trading Paths</div>
+                <div className="mt-5 pt-4 border-t border-white/5">
+                  <div className="text-xs text-white/40 mb-3">Trading Paths</div>
                   <div className="space-y-2">
                     {Object.entries(analytics.tradeStats.volumeByPath)
                       .sort((a, b) => b[1].count - a[1].count)
                       .slice(0, 5)
                       .map(([path, stats]) => (
-                        <div key={path} className="bg-white/5 rounded p-2 text-sm">
-                          <div className="text-white/80 font-mono text-xs mb-1 break-all">
+                        <div key={path} className="bg-white/[0.03] rounded-lg p-3">
+                          <div className="text-white/70 font-mono text-xs mb-1 break-all">
                             {path.split(' > ').map((addr, idx, arr) => (
                               <span key={idx}>
                                 {shortenAddress(addr, 4)}
-                                {idx < arr.length - 1 && <span className="text-white/40"> → </span>}
+                                {idx < arr.length - 1 && <span className="text-white/30"> → </span>}
                               </span>
                             ))}
                           </div>
-                          <div className="text-white/60 text-xs">
+                          <div className="text-white/40 text-xs">
                             {stats.count} trade{stats.count !== 1 ? 's' : ''}
                           </div>
                         </div>
@@ -237,8 +235,8 @@ export function PerformancePanel({ botAccount, events, explorerAddressUrlPrefix 
 
               {/* Volume breakdown by token */}
               {Object.keys(analytics.tradeStats.volumeInByToken).length > 0 && (
-                <div className="mt-4">
-                  <div className="text-sm text-white/60 mb-2">Volume Traded</div>
+                <div className="mt-5 pt-4 border-t border-white/5">
+                  <div className="text-xs text-white/40 mb-3">Volume Traded</div>
                   <div className="space-y-2">
                     {Array.from(
                       new Set([
@@ -253,17 +251,17 @@ export function PerformancePanel({ botAccount, events, explorerAddressUrlPrefix 
                       const volumeOut = analytics.tradeStats.volumeOutByToken[tokenAddr] || 0n;
 
                       return (
-                        <div key={tokenAddr} className="bg-white/5 rounded p-2 text-sm">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-white font-medium">{symbol}</span>
+                        <div key={tokenAddr} className="bg-white/[0.03] rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-white/60">{symbol}</span>
                             <AddressLink address={tokenAddr as `0x${string}`} />
                           </div>
                           <div className="flex justify-between text-xs">
-                            <span className="text-white/60">
-                              In: {formatTokenAmount(volumeIn, decimals)}
+                            <span className="text-white/40">
+                              In: <span className="text-white/70 font-mono">{formatTokenAmount(volumeIn, decimals)}</span>
                             </span>
-                            <span className="text-white/60">
-                              Out: {formatTokenAmount(volumeOut, decimals)}
+                            <span className="text-white/40">
+                              Out: <span className="text-white/70 font-mono">{formatTokenAmount(volumeOut, decimals)}</span>
                             </span>
                           </div>
                         </div>

@@ -242,26 +242,26 @@ export default function BotDetailPage() {
       ) : details ? (
         <>
           {/* Profile Header */}
-          <div className="mb-8 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+          <div className="mb-10 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-8">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
               {/* Left: Bot Identity */}
-              <div className="flex gap-4">
+              <div className="flex gap-5">
                 {metadata?.image ? (
                   <img 
                     src={metadata.image as string} 
                     alt="Bot avatar" 
-                    className="w-16 h-16 object-cover rounded-lg border border-white/10 flex-shrink-0"
+                    className="w-20 h-20 object-cover rounded-lg border border-white/20 flex-shrink-0"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 ) : null}
                 <div className="flex-1">
-                  <h1 className="text-3xl font-bold mb-1">
+                  <h1 className="text-4xl font-bold mb-2 leading-tight">
                     {metadata?.name ? metadata.name as string : `Bot #${bot.botId.toString()}`}
                   </h1>
                   {metadata?.handle ? (
-                    <p className="text-white/60 font-mono text-sm mb-2">{metadata.handle as string}</p>
+                    <p className="text-white/50 font-mono text-sm mb-3">{metadata.handle as string}</p>
                   ) : null}
                   <div className="flex items-center gap-2 text-sm">
                     <AddressLink address={bot.botAccount} />
@@ -271,7 +271,7 @@ export default function BotDetailPage() {
                         href={`${appConfig.explorerAddressUrlPrefix}${bot.botAccount}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-white/40 hover:text-red-400 transition-colors"
+                        className="text-white/30 hover:text-red-400 transition-colors text-base"
                       >
                         ↗
                       </a>
@@ -281,7 +281,7 @@ export default function BotDetailPage() {
               </div>
 
               {/* Right: Status Pills */}
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 lg:justify-end">
                 <StatusChip 
                   label={LIFECYCLE_STATES[details.lifecycleState as keyof typeof LIFECYCLE_STATES]}
                   variant="info"
@@ -299,89 +299,89 @@ export default function BotDetailPage() {
           </div>
 
           {/* 2-Column Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
             {/* Left Column: Primary Content */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Identity & Strategy */}
+            <div className="lg:col-span-2 space-y-8">
+              {/* Identity & Strategy - PRIMARY */}
               {metadata ? (
-                <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-red-400">Identity & Strategy</h3>
+                <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-8">
+                  <div className="flex items-start justify-between mb-6">
+                    <h3 className="text-2xl font-bold text-white">Identity & Strategy</h3>
                     {isCreator && (
-                      <span className="text-xs text-white/40 italic">Identity is immutable after creation</span>
+                      <span className="text-xs text-white/30 italic">immutable</span>
                     )}
                   </div>
-                  <div className="space-y-3 text-sm">
+                  <div className="space-y-5">
                     {metadata.description ? (
                       <div>
-                        <span className="text-white/60">Description:</span>
-                        <p className="mt-1 text-white/80">{metadata.description as string}</p>
+                        <span className="text-xs uppercase tracking-wide text-white/40 font-medium">Description</span>
+                        <p className="mt-2 text-white/90 leading-relaxed">{metadata.description as string}</p>
                       </div>
                     ) : null}
                     {metadata.strategyPrompt ? (
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-white/60">Strategy Prompt:</span>
+                      <div className="pt-4 border-t border-white/5">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs uppercase tracking-wide text-white/40 font-medium">Strategy Prompt</span>
                           <div className="flex gap-2">
                             <CopyButton text={metadata.strategyPrompt as string} label="strategy" />
                             <button
                               onClick={() => setStrategyExpanded(!strategyExpanded)}
-                              className="text-xs text-red-400 hover:text-red-300"
+                              className="text-xs text-white/60 hover:text-red-400 transition-colors"
                             >
                               {strategyExpanded ? 'Collapse' : 'Expand'}
                             </button>
                           </div>
                         </div>
-                        <p className="text-white/80 font-mono text-xs bg-black/20 p-3 rounded border border-white/5">
+                        <p className="text-white/80 font-mono text-xs bg-black/30 p-4 rounded-lg border border-white/5 leading-relaxed">
                           {strategyExpanded 
                             ? metadata.strategyPrompt as string 
                             : (metadata.strategyPrompt as string).slice(0, 200) + ((metadata.strategyPrompt as string).length > 200 ? '...' : '')}
                         </p>
-                        <p className="text-xs text-white/40 mt-1">This prompt guides the agent runner's trading decisions</p>
+                        <p className="text-xs text-white/30 mt-2">Guides the agent runner's trading decisions</p>
                       </div>
                     ) : null}
                   </div>
                 </div>
               ) : (
-                <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-                  <h3 className="text-lg font-semibold mb-2 text-red-400">Identity & Strategy</h3>
-                  <p className="text-white/60 text-sm">Metadata not decodable. Raw URI:</p>
-                  <p className="text-white/40 text-xs font-mono mt-2 break-all">{bot.metadataURI}</p>
+                <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-8">
+                  <h3 className="text-2xl font-bold mb-4 text-white">Identity & Strategy</h3>
+                  <p className="text-white/50 text-sm">Metadata not decodable. Raw URI:</p>
+                  <p className="text-white/30 text-xs font-mono mt-2 break-all">{bot.metadataURI}</p>
                 </div>
               )}
 
-              {/* Onchain Proof - Merged */}
-              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-                <h3 className="text-lg font-semibold mb-4 text-red-400">Onchain Proof</h3>
+              {/* Onchain Proof - PRIMARY */}
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-8">
+                <h3 className="text-2xl font-bold mb-6 text-white">Onchain Proof</h3>
                 
                 <div className="space-y-6">
                   {/* Creation Group */}
                   <div>
-                    <h4 className="text-sm font-medium text-white/80 mb-3">Creation</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-start justify-between">
-                        <span className="text-white/60">Transaction:</span>
+                    <h4 className="text-xs uppercase tracking-wide text-white/40 font-medium mb-4">Creation</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-white/50 min-w-[100px]">Transaction</span>
                         {bot.transactionHash !== '0x0000000000000000000000000000000000000000000000000000000000000000' ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-1 justify-end">
                             <TxLink hash={bot.transactionHash} />
                             <CopyButton text={bot.transactionHash} label="tx" />
                           </div>
                         ) : (
-                          <span className="text-white/60">Not available (direct lookup)</span>
+                          <span className="text-white/40 text-sm text-right">Not available</span>
                         )}
                       </div>
                       {bot.transactionHash !== '0x0000000000000000000000000000000000000000000000000000000000000000' && (
-                        <div className="flex items-start justify-between">
-                          <span className="text-white/60">Block:</span>
-                          <span className="text-white/80">{bot.blockNumber.toString()}</span>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-xs text-white/50 min-w-[100px]">Block</span>
+                          <span className="text-white font-mono font-semibold">{bot.blockNumber.toString()}</span>
                         </div>
                       )}
-                      <div className="flex items-start justify-between">
-                        <span className="text-white/60">Metadata URI:</span>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-white/50 min-w-[100px]">Metadata URI</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-white/80 font-mono text-xs truncate max-w-xs">
-                            {bot.metadataURI.slice(0, 40)}...
+                          <span className="text-white/60 font-mono text-xs truncate max-w-[200px]">
+                            {bot.metadataURI.slice(0, 30)}...
                           </span>
                           <CopyButton text={bot.metadataURI} label="URI" />
                         </div>
@@ -390,37 +390,37 @@ export default function BotDetailPage() {
                   </div>
 
                   {/* Runtime Group */}
-                  <div>
-                    <h4 className="text-sm font-medium text-white/80 mb-3">Runtime</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-start justify-between">
-                        <span className="text-white/60">Creator:</span>
+                  <div className="pt-4 border-t border-white/5">
+                    <h4 className="text-xs uppercase tracking-wide text-white/40 font-medium mb-4">Runtime</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-white/50 min-w-[100px]">Creator</span>
                         <AddressLink address={details.creator} />
                       </div>
-                      <div className="flex items-start justify-between">
-                        <span className="text-white/60">Operator:</span>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-white/50 min-w-[100px]">Operator</span>
                         <AddressLink address={details.operator} />
                       </div>
-                      <div className="flex items-start justify-between">
-                        <span className="text-white/60">Nonce:</span>
-                        <span className="text-white/80 font-medium">{details.nonce.toString()}</span>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-white/50 min-w-[100px]">Nonce</span>
+                        <span className="text-white text-xl font-bold tabular-nums">{details.nonce.toString()}</span>
                       </div>
                       {lastActivity && (
-                        <div className="flex items-start justify-between">
-                          <span className="text-white/60">Last Activity:</span>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-xs text-white/50 min-w-[100px]">Last Activity</span>
                           <div className="flex items-center gap-2">
-                            <span className="text-white/80 text-xs">{lastActivity.type}</span>
+                            <span className="text-white/70 text-xs">{lastActivity.type}</span>
                             <TxLink hash={lastActivity.transactionHash} />
                           </div>
                         </div>
                       )}
-                      <div className="flex items-start justify-between">
-                        <span className="text-white/60">Max Trade Size:</span>
-                        <span className="text-white/80">{formatTokenAmount(details.riskParams.maxAmountInPerTrade)}</span>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-white/50 min-w-[100px]">Max Trade</span>
+                        <span className="text-white/80 font-mono text-sm">{formatTokenAmount(details.riskParams.maxAmountInPerTrade)}</span>
                       </div>
-                      <div className="flex items-start justify-between">
-                        <span className="text-white/60">Cooldown:</span>
-                        <span className="text-white/80">{details.riskParams.minSecondsBetweenTrades.toString()}s</span>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs text-white/50 min-w-[100px]">Cooldown</span>
+                        <span className="text-white/80 font-mono text-sm">{details.riskParams.minSecondsBetweenTrades.toString()}s</span>
                       </div>
                     </div>
                   </div>
@@ -439,8 +439,8 @@ export default function BotDetailPage() {
             </div>
 
             {/* Right Column: Secondary Content */}
-            <div className="space-y-6">
-              {/* Tokenization */}
+            <div className="space-y-5">
+              {/* Tokenization - SECONDARY */}
               <TokenizePanel 
                 botId={bot.botId} 
                 botToken={botToken || undefined} 
@@ -448,25 +448,25 @@ export default function BotDetailPage() {
                 botMetadata={metadata}
               />
 
-              {/* Creator Actions */}
+              {/* Creator Actions - SECONDARY */}
               {isCreator && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-red-400">Creator Actions</h3>
+                <div className="space-y-3">
+                  <h3 className="text-base font-semibold text-white mb-4">Creator Actions</h3>
                   
                   {/* Pause/Resume */}
                   <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-orange-500/20 p-4">
-                    <h4 className="font-medium text-white mb-3">⏸️ Pause/Resume</h4>
-                    <p className="text-xs text-white/60 mb-3">
-                      {details.paused ? 'Resume bot operations' : 'Temporarily pause all operations'}
+                    <h4 className="font-medium text-white text-sm mb-2">⏸️ Pause/Resume</h4>
+                    <p className="text-xs text-white/50 mb-3">
+                      {details.paused ? 'Resume operations' : 'Pause all operations'}
                     </p>
                     <PauseControl botAccount={bot.botAccount} currentlyPaused={details.paused} />
                   </div>
 
                   {/* Lifecycle */}
                   <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4">
-                    <h4 className="font-medium text-white mb-3">🔄 Update Lifecycle</h4>
-                    <p className="text-xs text-white/60 mb-3">
-                      Change bot visibility and trading permissions
+                    <h4 className="font-medium text-white text-sm mb-2">🔄 Lifecycle</h4>
+                    <p className="text-xs text-white/50 mb-3">
+                      Visibility and trading permissions
                     </p>
                     <LifecycleControl botAccount={bot.botAccount} currentState={details.lifecycleState} />
                   </div>
@@ -474,9 +474,9 @@ export default function BotDetailPage() {
                   {/* Deposit */}
                   {address && (
                     <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4">
-                      <h4 className="font-medium text-white mb-3">💰 Deposit Funds</h4>
-                      <p className="text-xs text-white/60 mb-3">
-                        Step 1: Approve token | Step 2: Deposit to bot
+                      <h4 className="font-medium text-white text-sm mb-2">💰 Deposit</h4>
+                      <p className="text-xs text-white/50 mb-3">
+                        Step 1: Approve | Step 2: Deposit
                       </p>
                       <DepositControl botAccount={bot.botAccount} userAddress={address} />
                     </div>
@@ -484,9 +484,9 @@ export default function BotDetailPage() {
 
                   {/* Withdraw */}
                   <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-red-500/20 p-4">
-                    <h4 className="font-medium text-white mb-3">💸 Withdraw Funds</h4>
-                    <p className="text-xs text-white/60 mb-3">
-                      Withdraw tokens from bot account (creator only)
+                    <h4 className="font-medium text-white text-sm mb-2">💸 Withdraw</h4>
+                    <p className="text-xs text-white/50 mb-3">
+                      Remove tokens (creator only)
                     </p>
                     <WithdrawControl botAccount={bot.botAccount} creatorAddress={details.creator} />
                   </div>
@@ -507,7 +507,7 @@ export default function BotDetailPage() {
                 </div>
               )}
 
-              {/* Social Feed */}
+              {/* Social Feed - TERTIARY */}
               <PostsFeed botId={id} />
             </div>
           </div>

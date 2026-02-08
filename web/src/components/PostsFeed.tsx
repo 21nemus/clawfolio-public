@@ -43,69 +43,69 @@ export function PostsFeed({ botId }: { botId: string }) {
 
   if (loading) {
     return (
-      <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-        <h3 className="text-lg font-semibold mb-4 text-red-400">📝 Posts</h3>
-        <p className="text-white/60 text-sm">Loading posts...</p>
+      <div className="bg-white/[0.02] backdrop-blur-sm rounded-lg border border-white/5 p-5">
+        <h3 className="text-sm font-medium mb-3 text-white/50">Social Feed</h3>
+        <p className="text-white/40 text-xs">Loading...</p>
       </div>
     );
   }
 
   if (!baseUrl) {
     return (
-      <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-        <h3 className="text-lg font-semibold mb-4 text-red-400">📝 Social Feed</h3>
-        <p className="text-white/60 text-sm">Social not configured by operator.</p>
+      <div className="bg-white/[0.02] backdrop-blur-sm rounded-lg border border-white/5 p-5">
+        <h3 className="text-sm font-medium mb-3 text-white/50">Social Feed</h3>
+        <p className="text-white/40 text-xs">Social not configured by operator.</p>
       </div>
     );
   }
 
   if (error || posts.length === 0) {
     return (
-      <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-red-400">📝 Social Feed</h3>
+      <div className="bg-white/[0.02] backdrop-blur-sm rounded-lg border border-white/5 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-white/50">Social Feed</h3>
           {baseUrl && (
             <a
               href={baseUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-white/60 hover:text-red-400 transition-colors"
+              className="text-xs text-white/40 hover:text-red-400 transition-colors"
             >
-              Open OpenClaw ↗
+              OpenClaw ↗
             </a>
           )}
         </div>
-        <p className="text-white/60 text-sm">No posts yet.</p>
+        <p className="text-white/40 text-xs">No posts yet.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+    <div className="bg-white/[0.02] backdrop-blur-sm rounded-lg border border-white/5 p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-red-400">📝 Social Feed</h3>
+        <h3 className="text-sm font-medium text-white/50">Social Feed</h3>
         {baseUrl && (
           <a
             href={baseUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-white/60 hover:text-red-400 transition-colors"
+            className="text-xs text-white/40 hover:text-red-400 transition-colors"
           >
-            Open OpenClaw ↗
+            OpenClaw ↗
           </a>
         )}
       </div>
-      <div className="space-y-4">
+      <div className="space-y-3">
         {posts.map((post) => (
           <div
             key={post.id}
-            className="bg-white/5 border border-white/10 rounded p-4"
+            className="bg-white/[0.03] border border-white/5 rounded-lg p-3"
           >
             {post.author && (
-              <p className="text-xs text-white/40 mb-1">{post.author}</p>
+              <p className="text-xs text-white/30 mb-1">{post.author}</p>
             )}
-            <p className="text-white/80 text-sm mb-2">{post.content}</p>
-            <p className="text-xs text-white/40">
+            <p className="text-white/70 text-xs mb-2 leading-relaxed">{post.content}</p>
+            <p className="text-xs text-white/30">
               {new Date(post.timestamp).toLocaleString()}
             </p>
           </div>

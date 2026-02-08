@@ -292,41 +292,39 @@ export function TokenizePanel({
   // Read-only status for non-creators or already tokenized
   if (!isCreator || botToken) {
     return (
-      <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-        <h3 className="text-lg font-semibold mb-4 text-red-400">🪙 Token Status</h3>
+      <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-5">
+        <h3 className="text-base font-semibold mb-4 text-white">Token Status</h3>
         {botToken ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <p className="text-white/80">Token:</p>
+              <span className="text-xs text-white/50">Token:</span>
               <AddressLink address={botToken} />
-              <CopyButton text={botToken} label="token address" />
+              <CopyButton text={botToken} label="token" />
             </div>
             <button
               onClick={loadTokenProgress}
               disabled={progressLoading}
-              className="text-sm text-red-400 hover:text-red-300 disabled:opacity-50"
+              className="text-xs text-white/60 hover:text-red-400 disabled:opacity-50 transition-colors"
             >
               {progressLoading ? 'Loading...' : 'Load Progress'}
             </button>
             {state.progress && (
-              <div className="mt-2 text-sm text-white/60">
+              <div className="text-xs text-white/50">
                 <p>Progress: {state.progress.value.toString()}</p>
               </div>
             )}
-            <div className="flex gap-2 mt-2">
-              <a
-                href={`https://nad.fun/token/${botToken}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-red-400 hover:text-red-300"
-              >
-                View on Nad.fun →
-              </a>
-            </div>
+            <a
+              href={`https://nad.fun/token/${botToken}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-xs text-white/60 hover:text-red-400 transition-colors mt-2"
+            >
+              View on Nad.fun →
+            </a>
           </div>
         ) : (
-          <p className="text-white/60">
-            {isCreator ? 'Not launched yet' : 'Connect as creator to tokenize this bot'}
+          <p className="text-white/50 text-sm">
+            {isCreator ? 'Not launched yet' : 'Connect as creator to tokenize'}
           </p>
         )}
       </div>
@@ -334,20 +332,20 @@ export function TokenizePanel({
   }
 
   return (
-    <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-      <h3 className="text-lg font-semibold mb-4 text-red-400">🪙 Tokenize on Nad.fun</h3>
+    <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-5">
+      <h3 className="text-base font-semibold mb-4 text-white">Tokenize on Nad.fun</h3>
 
       {error && (
-        <div className="mb-4 bg-red-500/10 border border-red-500/20 rounded p-3 text-red-400 text-sm">
+        <div className="mb-3 bg-red-500/10 border border-red-500/20 rounded p-2 text-red-400 text-xs">
           {error}
         </div>
       )}
 
-      <div className="mb-6 flex gap-2">
+      <div className="mb-4 flex gap-1">
         {[1, 2, 3, 4, 5].map((s) => (
           <div
             key={s}
-            className={`flex-1 h-2 rounded ${
+            className={`flex-1 h-1.5 rounded ${
               s <= step ? 'bg-red-500' : 'bg-white/10'
             }`}
           />
