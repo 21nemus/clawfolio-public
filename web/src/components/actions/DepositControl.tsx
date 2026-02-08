@@ -60,9 +60,9 @@ export function DepositControl({
   if (isSuccess && hash) {
     if (step === 'approve') {
       return (
-        <div className="space-y-4">
-          <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-            <p className="text-green-400 mb-2">Approval successful!</p>
+        <div className="space-y-3">
+          <div className="bg-green-500/10 border border-green-500/20 rounded p-3">
+            <p className="text-green-400 text-xs mb-2">Approved!</p>
             <TxLink hash={hash} />
           </div>
           <button
@@ -70,17 +70,17 @@ export function DepositControl({
               setStep('deposit');
               handleDeposit();
             }}
-            className="w-full px-4 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors"
+            className="w-full px-3 py-2 bg-red-500/90 hover:bg-red-500 text-white font-medium rounded transition-colors text-sm"
           >
-            Proceed to Deposit
+            Step 2: Deposit
           </button>
         </div>
       );
     }
     
     return (
-      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-        <p className="text-green-400 mb-2">Deposit successful!</p>
+      <div className="bg-green-500/10 border border-green-500/20 rounded p-3">
+        <p className="text-green-400 text-xs mb-2">Deposit successful!</p>
         <TxLink hash={hash} />
         <button
           onClick={() => {
@@ -88,41 +88,37 @@ export function DepositControl({
             setTokenAddress('');
             setAmount('');
           }}
-          className="mt-4 text-sm text-white/60 hover:text-white"
+          className="mt-3 text-xs text-white/60 hover:text-white"
         >
-          Make another deposit →
+          Deposit again →
         </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-white/60">
-        Deposit ERC20 tokens into the bot for trading. You'll need to approve first, then deposit.
-      </p>
-      
+    <div className="space-y-3">
       <div>
-        <label className="block text-sm font-medium mb-2">Token Address</label>
+        <label className="block text-xs text-white/50 mb-2">Token Address</label>
         <input
           type="text"
           value={tokenAddress}
           onChange={(e) => setTokenAddress(e.target.value)}
           placeholder="0x..."
           disabled={step !== 'input'}
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 font-mono text-sm disabled:opacity-50"
+          className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/20 font-mono disabled:opacity-50"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">Amount</label>
+        <label className="block text-xs text-white/50 mb-2">Amount</label>
         <input
           type="text"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="100"
           disabled={step !== 'input'}
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 disabled:opacity-50"
+          className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/20 disabled:opacity-50"
         />
         {decimals !== undefined && (
           <p className="text-xs text-white/40 mt-1">Decimals: {decimals}</p>
@@ -130,7 +126,7 @@ export function DepositControl({
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400">
+        <div className="bg-red-500/10 border border-red-500/20 rounded p-2 text-xs text-red-400/90">
           {error.message}
         </div>
       )}
@@ -142,9 +138,9 @@ export function DepositControl({
             handleApprove();
           }}
           disabled={!tokenAddress || !amount || !decimals || isPending}
-          className="w-full px-4 py-3 bg-red-500 hover:bg-red-600 disabled:bg-white/10 disabled:text-white/40 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
+          className="w-full px-3 py-2 bg-red-500/90 hover:bg-red-500 disabled:bg-white/5 disabled:text-white/30 disabled:cursor-not-allowed text-white font-medium rounded transition-colors text-sm"
         >
-          {isPending || isConfirming ? 'Step 1: Approving...' : 'Step 1: Approve Token'}
+          {isPending || isConfirming ? 'Approving...' : 'Approve'}
         </button>
       )}
     </div>
