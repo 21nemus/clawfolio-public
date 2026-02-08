@@ -26,19 +26,25 @@ export default function TokensPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [onlyTokenized, setOnlyTokenized] = useState(true);
 
   const appConfig = loadConfig();
 
-  // Filter tokens based on search
+  // Filter tokens based on search and toggle
   const filteredTokens = tokens.filter((token) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      token.botId.toString().includes(query) ||
-      token.tokenAddress.toLowerCase().includes(query) ||
-      token.name?.toLowerCase().includes(query) ||
-      token.handle?.toLowerCase().includes(query)
-    );
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matches = (
+        token.botId.toString().includes(query) ||
+        token.tokenAddress.toLowerCase().includes(query) ||
+        token.name?.toLowerCase().includes(query) ||
+        token.handle?.toLowerCase().includes(query)
+      );
+      if (!matches) return false;
+    }
+    // No additional filter needed - tokens are already tokenized by definition
+    return true;
   });
 
   // Sort tokens: by progress desc (if available), then by botId desc
@@ -228,14 +234,23 @@ export default function TokensPage() {
         <p className="text-white/60">All launched tokens on Nad.fun ({tokens.length} total)</p>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 flex gap-4 items-center">
         <input
           type="text"
           placeholder="Search by bot ID, token address, name, or handle..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
+          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
         />
+        <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={onlyTokenized}
+            onChange={(e) => setOnlyTokenized(e.target.checked)}
+            className="w-4 h-4 accent-red-500"
+          />
+          Only tokenized
+        </label>
       </div>
 
       {filteredTokens.length === 0 && searchQuery ? (

@@ -1,191 +1,109 @@
 'use client';
 
-import { useBotRegistryLogs } from '@/hooks/useBotRegistryLogs';
+import { useAllBots, BotWithMetadata } from '@/hooks/useAllBots';
 import { BotCard } from '@/components/BotCard';
 import { useState, useEffect } from 'react';
 import { publicClient } from '@/lib/clients';
-import { BOT_REGISTRY_ABI } from '@/lib/abi';
-import { loadConfig } from '@/lib/config';
-import { decodeMetadataURI } from '@/lib/encoding';
+import { BotAccountABI } from '@/abi/BotAccount';
 import Link from 'next/link';
 
-interface BotEnrichment {
-  name?: string;
-  handle?: string;
-  image?: string;
-  hasToken?: boolean;
-}
-
-interface DirectLookupBot {
-  botId: bigint;
-  botAccount: `0x${string}`;
-  name?: string;
-  handle?: string;
-  image?: string;
-  hasToken?: boolean;
+interface TopBot extends BotWithMetadata {
+  nonce?: bigint;
 }
 
 export default function BotsPage() {
-  const { logs, loading, error } = useBotRegistryLogs();
+  const { bots, loading, error } = useAllBots();
   const [searchQuery, setSearchQuery] = useState('');
-  const [directLookupBot, setDirectLookupBot] = useState<DirectLookupBot | null>(null);
-  const [lookupLoading, setLookupLoading] = useState(false);
-  const [enrichments, setEnrichments] = useState<Map<string, BotEnrichment>>(new Map());
+  const [topBots, setTopBots] = useState<TopBot[]>([]);
+  const [topBotsLoading, setTopBotsLoading] = useState(true);
 
-  const filteredLogs = logs.filter((log) => {
+  // Filter bots based on search
+  const filteredBots = bots.filter((bot) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
+    // Normalize handle search: remove @ if query starts with @
+    const normalizedQuery = query.startsWith('@') ? query.slice(1) : query;
+    
     return (
-      log.botId.toString().includes(query) ||
-      log.botAccount.toLowerCase().includes(query) ||
-      log.creator.toLowerCase().includes(query)
+      bot.botId.toString().includes(query) ||
+      bot.botAccount.toLowerCase().includes(query) ||
+      bot.name?.toLowerCase().includes(query) ||
+      bot.handle?.toLowerCase().includes(normalizedQuery) ||
+      bot.description?.toLowerCase().includes(query)
     );
   });
 
-  // Enrich visible bots with identity + token status (limit to first 24 for performance)
+  // Fetch Top Bots (ranked by nonce)
   useEffect(() => {
-    if (loading || filteredLogs.length === 0) return;
+    if (loading || bots.length === 0) return;
 
     let cancelled = false;
 
-    const enrichBots = async () => {
-      const config = loadConfig();
-      if (!config.botRegistry) return;
-
+    const fetchTopBots = async () => {
       try {
-        // Only enrich first 24 bots initially
-        const botsToEnrich = filteredLogs.slice(0, 24);
-        
-        const enrichmentResults = await Promise.all(
-          botsToEnrich.map(async (bot) => {
-            try {
-              const [metadataURI, tokenAddress] = await Promise.all([
-                publicClient.readContract({
-                  address: config.botRegistry!,
-                  abi: BOT_REGISTRY_ABI,
-                  functionName: 'metadataURI',
-                  args: [bot.botId],
-                }) as Promise<string>,
-                publicClient.readContract({
-                  address: config.botRegistry!,
-                  abi: BOT_REGISTRY_ABI,
-                  functionName: 'botTokenOf',
-                  args: [bot.botId],
-                }) as Promise<`0x${string}`>,
-              ]);
+        setTopBotsLoading(true);
+        // Fetch nonce for first 50 bots (or all if less)
+        const botsToRank = bots.slice(0, Math.min(50, bots.length));
+        const CONCURRENCY = 5;
 
-              const metadata = decodeMetadataURI(metadataURI);
-              const hasToken = tokenAddress !== '0x0000000000000000000000000000000000000000';
+        const rankedBots: TopBot[] = [];
 
-              return {
-                botId: bot.botId.toString(),
-                enrichment: {
-                  name: metadata?.name as string | undefined,
-                  handle: metadata?.handle as string | undefined,
-                  image: metadata?.image as string | undefined,
-                  hasToken,
-                },
-              };
-            } catch {
-              return {
-                botId: bot.botId.toString(),
-                enrichment: {},
-              };
-            }
-          })
-        );
+        for (let i = 0; i < botsToRank.length; i += CONCURRENCY) {
+          if (cancelled) break;
 
-        if (cancelled) return;
+          const batch = botsToRank.slice(i, i + CONCURRENCY);
+          const results = await Promise.all(
+            batch.map(async (bot) => {
+              try {
+                const nonce = await publicClient.readContract({
+                  address: bot.botAccount,
+                  abi: BotAccountABI,
+                  functionName: 'nonce',
+                }) as bigint;
 
-        const newEnrichments = new Map<string, BotEnrichment>();
-        enrichmentResults.forEach(({ botId, enrichment }) => {
-          newEnrichments.set(botId, enrichment);
+                return { ...bot, nonce };
+              } catch {
+                return { ...bot, nonce: 0n };
+              }
+            })
+          );
+
+          if (!cancelled) {
+            rankedBots.push(...results);
+          }
+        }
+
+        // Sort by nonce desc, then hasToken, then botId desc
+        rankedBots.sort((a, b) => {
+          const aNonce = a.nonce || 0n;
+          const bNonce = b.nonce || 0n;
+          if (aNonce !== bNonce) {
+            return Number(bNonce - aNonce);
+          }
+          if (a.hasToken !== b.hasToken) {
+            return a.hasToken ? -1 : 1;
+          }
+          return Number(b.botId - a.botId);
         });
-        
+
         if (!cancelled) {
-          setEnrichments(newEnrichments);
+          setTopBots(rankedBots.slice(0, 6)); // Top 6 for display
+          setTopBotsLoading(false);
         }
       } catch (err) {
-        console.error('Failed to enrich bots:', err);
+        console.error('Failed to fetch top bots:', err);
+        if (!cancelled) {
+          setTopBotsLoading(false);
+        }
       }
     };
 
-    enrichBots();
+    fetchTopBots();
 
     return () => {
       cancelled = true;
     };
-  }, [filteredLogs, loading]);
-
-  // Direct lookup by botId if search query is numeric
-  useEffect(() => {
-    const trimmed = searchQuery.trim();
-    if (!trimmed || !/^\d+$/.test(trimmed)) {
-      setDirectLookupBot(null);
-      return;
-    }
-
-    const botId = BigInt(trimmed);
-    
-    // Check if already in logs
-    if (logs.find((log) => log.botId === botId)) {
-      setDirectLookupBot(null);
-      return;
-    }
-
-    const lookup = async () => {
-      const config = loadConfig();
-      if (!config.botRegistry) return;
-
-      try {
-        setLookupLoading(true);
-        
-        const [botAccount, metadataURI, tokenAddress] = await Promise.all([
-          publicClient.readContract({
-            address: config.botRegistry,
-            abi: BOT_REGISTRY_ABI,
-            functionName: 'botAccountOf',
-            args: [botId],
-          }) as Promise<`0x${string}`>,
-          publicClient.readContract({
-            address: config.botRegistry,
-            abi: BOT_REGISTRY_ABI,
-            functionName: 'metadataURI',
-            args: [botId],
-          }) as Promise<string>,
-          publicClient.readContract({
-            address: config.botRegistry,
-            abi: BOT_REGISTRY_ABI,
-            functionName: 'botTokenOf',
-            args: [botId],
-          }) as Promise<`0x${string}`>,
-        ]);
-
-        if (botAccount && botAccount !== '0x0000000000000000000000000000000000000000') {
-          const metadata = decodeMetadataURI(metadataURI);
-          const hasToken = tokenAddress !== '0x0000000000000000000000000000000000000000';
-
-          setDirectLookupBot({
-            botId,
-            botAccount,
-            name: metadata?.name as string | undefined,
-            handle: metadata?.handle as string | undefined,
-            image: metadata?.image as string | undefined,
-            hasToken,
-          });
-        } else {
-          setDirectLookupBot(null);
-        }
-      } catch (err) {
-        console.error('Direct lookup failed:', err);
-        setDirectLookupBot(null);
-      } finally {
-        setLookupLoading(false);
-      }
-    };
-
-    lookup();
-  }, [searchQuery, logs]);
+  }, [bots, loading]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -197,7 +115,7 @@ export default function BotsPage() {
       <div className="mb-6">
         <input
           type="text"
-          placeholder="Search by bot ID, account address, or creator..."
+          placeholder="Search by bot ID, name, handle, or address..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
@@ -207,9 +125,6 @@ export default function BotsPage() {
       {error && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
           <p className="text-red-400 mb-2">{error}</p>
-          <p className="text-white/60 text-sm">
-            Tipp: Suche nach Bot ID funktioniert weiterhin (direkte Registry-Abfrage).
-          </p>
         </div>
       )}
 
@@ -219,85 +134,113 @@ export default function BotsPage() {
         </div>
       ) : (
         <>
-          {directLookupBot && (
-            <div className="mb-6">
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-4">
-                <p className="text-blue-400 text-sm">Direct lookup result (not in recent logs):</p>
-              </div>
-              <Link href={`/bots/${directLookupBot.botId}`}>
-                <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:border-red-400/50 transition-all cursor-pointer">
-                  <div className="flex items-start gap-4 mb-4">
-                    {directLookupBot.image && (
-                      <img 
-                        src={directLookupBot.image} 
-                        alt={directLookupBot.name || `Bot ${directLookupBot.botId}`}
-                        className="w-16 h-16 object-cover rounded-lg border border-white/10 flex-shrink-0"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="text-xl font-bold text-white hover:text-red-400 transition-colors">
-                          {directLookupBot.name || `Bot #${directLookupBot.botId.toString()}`}
-                        </h3>
-                        {directLookupBot.hasToken && (
+          {/* Top Bots Section */}
+          {!searchQuery && topBots.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                <span>🏆</span>
+                <span>Top Bots</span>
+                <span className="text-sm text-white/40 font-normal">(by activity)</span>
+              </h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {topBots.map((bot, idx) => (
+                  <Link key={bot.botId.toString()} href={`/bots/${bot.botId}`}>
+                    <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 hover:border-red-400/50 transition-all cursor-pointer relative">
+                      <div className="absolute top-2 right-2 flex items-center gap-1">
+                        {idx === 0 && <span className="text-xl">🥇</span>}
+                        {idx === 1 && <span className="text-xl">🥈</span>}
+                        {idx === 2 && <span className="text-xl">🥉</span>}
+                        {bot.hasToken && (
                           <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 rounded">
                             Token
                           </span>
                         )}
                       </div>
-                      {directLookupBot.handle && (
-                        <p className="text-sm text-white/60 mt-1 font-mono">{directLookupBot.handle}</p>
-                      )}
-                      <p className="text-white/40 text-xs mt-2 font-mono break-all">
-                        {directLookupBot.botAccount}
-                      </p>
+                      <div className="flex items-start gap-3">
+                        {bot.image && (
+                          <img 
+                            src={bot.image} 
+                            alt={bot.name || `Bot ${bot.botId}`}
+                            className="w-12 h-12 object-cover rounded-lg border border-white/10"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-white truncate">
+                            {bot.name || `Bot #${bot.botId.toString()}`}
+                          </h3>
+                          {bot.handle && (
+                            <p className="text-xs text-white/60 font-mono truncate">{bot.handle}</p>
+                          )}
+                          <div className="mt-2 flex items-center gap-3 text-xs text-white/40">
+                            <span>Trades: {bot.nonce?.toString() || '0'}</span>
+                            <span>ID: {bot.botId.toString()}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-red-400 text-sm">View details →</p>
-                </div>
-              </Link>
+                  </Link>
+                ))}
+              </div>
             </div>
           )}
 
-          {lookupLoading && (
-            <div className="text-center py-6">
-              <p className="text-white/60 text-sm">Looking up bot #{searchQuery}...</p>
-            </div>
-          )}
+          {/* All Bots Grid */}
+          <div className="mb-4">
+            <h2 className="text-xl font-bold">
+              {searchQuery ? `Search Results (${filteredBots.length})` : `All Bots (${bots.length})`}
+            </h2>
+          </div>
 
-          {filteredLogs.length === 0 && !directLookupBot && !lookupLoading ? (
+          {filteredBots.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-white/60">
-                {error 
-                  ? 'Log queries nicht verfügbar. Verwende Bot ID Suche für direkte Abfrage.' 
-                  : searchQuery 
-                    ? 'No bots match your search.' 
-                    : 'No bots found. Be the first to create one!'}
+                {searchQuery 
+                  ? 'No bots match your search.' 
+                  : 'No bots found. Be the first to create one!'}
               </p>
-              {searchQuery && /^\d+$/.test(searchQuery.trim()) && !error && (
-                <p className="text-white/40 text-sm mt-2">
-                  Bot #{searchQuery} not found or does not exist.
-                </p>
-              )}
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredLogs.map((bot) => {
-                const enrichment = enrichments.get(bot.botId.toString());
-                return (
-                  <BotCard 
-                    key={bot.botId.toString()} 
-                    bot={bot}
-                    name={enrichment?.name}
-                    handle={enrichment?.handle}
-                    image={enrichment?.image}
-                    hasToken={enrichment?.hasToken}
-                  />
-                );
-              })}
+              {filteredBots.map((bot) => (
+                <Link key={bot.botId.toString()} href={`/bots/${bot.botId}`}>
+                  <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:border-red-400/50 transition-all cursor-pointer">
+                    <div className="flex items-start gap-4 mb-4">
+                      {bot.image && (
+                        <img 
+                          src={bot.image} 
+                          alt={bot.name || `Bot ${bot.botId}`}
+                          className="w-16 h-16 object-cover rounded-lg border border-white/10 flex-shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="text-lg font-bold text-white hover:text-red-400 transition-colors truncate">
+                            {bot.name || `Bot #${bot.botId.toString()}`}
+                          </h3>
+                          {bot.hasToken && (
+                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 rounded flex-shrink-0">
+                              Token
+                            </span>
+                          )}
+                        </div>
+                        {bot.handle && (
+                          <p className="text-sm text-white/60 mt-1 font-mono truncate">{bot.handle}</p>
+                        )}
+                        <p className="text-white/40 text-xs mt-2 font-mono break-all">
+                          {bot.botAccount.slice(0, 10)}...{bot.botAccount.slice(-8)}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-red-400 text-sm">View details →</p>
+                  </div>
+                </Link>
+              ))}
             </div>
           )}
         </>
