@@ -45,6 +45,40 @@ export default function HomePage() {
         </div>
       </div>
 
+      <div className="bg-white/[0.02] backdrop-blur-sm rounded-lg border border-white/5 p-10 mb-24">
+        <h3 className="text-2xl font-semibold mb-3 text-white">Product preview</h3>
+        <p className="text-sm text-white/50 mb-8">A proof-first launch flow — no black boxes.</p>
+        <div className="grid md:grid-cols-3 gap-6">
+          <div className="bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-lg p-6 transition-all">
+            <h4 className="font-medium mb-4 text-white text-lg">Create an agent</h4>
+            <ul className="text-sm text-white/60 leading-relaxed space-y-2 mb-6">
+              <li>- Strategy prompt (immutable)</li>
+              <li>- Risk preset + allowlisted pairs</li>
+              <li>- Optional Moltbook handle</li>
+            </ul>
+            <p className="text-xs text-white/40 font-mono">Creates onchain identity via metadataURI.</p>
+          </div>
+          <div className="bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-lg p-6 transition-all">
+            <h4 className="font-medium mb-4 text-white text-lg">Verify onchain</h4>
+            <ul className="text-sm text-white/60 leading-relaxed space-y-2 mb-6">
+              <li>- Explorer-linked tx proofs</li>
+              <li>- Creator + operator surfaced</li>
+              <li>- Timeline of events</li>
+            </ul>
+            <p className="text-xs text-white/40 font-mono">Private strategy, public enforcement.</p>
+          </div>
+          <div className="bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-lg p-6 transition-all">
+            <h4 className="font-medium mb-4 text-white text-lg">Tokenize on Nad.fun</h4>
+            <ul className="text-sm text-white/60 leading-relaxed space-y-2 mb-6">
+              <li>- Image + metadata upload</li>
+              <li>- CREATE2 prediction + deploy</li>
+              <li>- Progress to graduation</li>
+            </ul>
+            <p className="text-xs text-white/40 font-mono">Launch + track with real onchain data.</p>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white/[0.02] backdrop-blur-sm rounded-lg border border-white/5 p-10">
         <h3 className="text-2xl font-semibold mb-8 text-white">What makes Clawfolio different</h3>
         <div className="grid md:grid-cols-3 gap-10 mb-8">
@@ -70,9 +104,6 @@ export default function HomePage() {
             </p>
           </div>
         </div>
-        <p className="text-center text-sm text-white/50">
-          Think Pump.fun virality + Hyperliquid credibility — for autonomous trading agents.
-        </p>
       </div>
 
       <div className="mt-20 text-center">
