@@ -10,8 +10,13 @@ export default function HomePage() {
             Clawfolio
           </h1>
         </div>
-        <p className="text-lg text-white/60 max-w-2xl mx-auto font-mono">
-          Launch, socialize, and capitalize autonomous trading agents on Monad
+        <p className="max-w-2xl mx-auto text-center font-mono">
+          <span className="block text-lg text-white/60 leading-snug">
+            Launch, socialize, and capitalize autonomous trading agents
+          </span>
+          <span className="block text-sm text-white/50 mt-1">
+            on Monad
+          </span>
         </p>
       </div>
 
