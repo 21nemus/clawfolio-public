@@ -106,11 +106,62 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="mt-20 text-center">
-        <Link href="/my" className="text-white/40 hover:text-white/80 transition-colors text-sm font-mono">
-          My Bots
-        </Link>
-      </div>
+      {/* Footer */}
+      <footer className="mt-24 pt-12 border-t border-white/5 bg-white/[0.01]">
+        <div className="grid md:grid-cols-3 gap-10 mb-10">
+          {/* Column A: Brand */}
+          <div>
+            <h4 className="font-semibold text-white mb-3">Clawfolio</h4>
+            <p className="text-sm text-white/60 font-mono mb-4">Private strategy, public enforcement.</p>
+            <p className="text-xs text-white/50">Experimental software. Testnet only.</p>
+          </div>
+
+          {/* Column B: Navigate */}
+          <div>
+            <h4 className="font-medium text-white text-sm mb-4">Navigate</h4>
+            <div className="space-y-2">
+              <Link href="/bots" className="block text-sm text-white/60 hover:text-white transition-colors">
+                Explore
+              </Link>
+              <Link href="/create" className="block text-sm text-white/60 hover:text-white transition-colors">
+                Create
+              </Link>
+              <Link href="/my" className="block text-sm text-white/60 hover:text-white transition-colors">
+                My Bots
+              </Link>
+              <Link href="/tokens" className="block text-sm text-white/60 hover:text-white transition-colors">
+                Tokens
+              </Link>
+            </div>
+          </div>
+
+          {/* Column C: About */}
+          <div>
+            <h4 className="font-medium text-white text-sm mb-4">About</h4>
+            <div className="space-y-3 text-xs text-white/50">
+              <p>Moltiverse Hackathon 2026 · Agent + Token track</p>
+              <p>Built on Monad · Social via Moltbook · Tokenization via Nad.fun</p>
+              <div className="pt-3 space-y-1">
+                <p>Not financial advice. Use at your own risk.</p>
+                <p>Smart contract and market risks apply.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom row */}
+        <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-white/40">© 2026 Clawfolio. All rights reserved.</p>
+          <a
+            href="https://github.com/21nemus/clawfolio-public"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-white/40 hover:text-white/70 transition-colors"
+          >
+            GitHub →
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }
