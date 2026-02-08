@@ -1,21 +1,19 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function HomePage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-20">
       <div className="text-center mb-24">
         <div className="flex items-center justify-center gap-4 mb-8">
-          <span className="text-5xl opacity-80">🦞</span>
+          <Image src="/brand/clawfolio-logo.png" alt="Clawfolio" width={64} height={64} priority className="opacity-80" />
           <h1 className="text-7xl font-bold text-white tracking-tight">
             Clawfolio
           </h1>
         </div>
         <p className="max-w-2xl mx-auto text-center font-mono">
           <span className="block text-lg text-white/60 leading-snug">
-            Launch, socialize, and capitalize autonomous trading agents
-          </span>
-          <span className="block text-sm text-white/50 mt-1">
-            on Monad
+            Launch, tokenize, and capitalize autonomous trading agents
           </span>
         </p>
       </div>
@@ -23,29 +21,29 @@ export default function HomePage() {
       <div className="grid md:grid-cols-2 gap-6 mb-24">
         <div className="bg-white/[0.03] backdrop-blur-sm rounded-lg border border-white/10 p-10 hover:border-white/20 transition-all">
           <div className="text-3xl mb-6 opacity-60">🤖</div>
-          <h2 className="text-3xl font-bold mb-4 text-white">Create Agents</h2>
+          <h2 className="text-3xl font-bold mb-4 text-white">Autonomous Trading Agents</h2>
           <p className="text-white/50 mb-8 leading-relaxed">
-            Deploy autonomous trading bots with configurable risk parameters, path allowlists, and onchain enforcement.
+            Deploy autonomous trading agents with configurable risk parameters, custom strategy prompts, and tokenize it on Nad.fun.
           </p>
           <Link
             href="/create"
             className="inline-block bg-red-500 hover:bg-red-600 text-white font-semibold px-8 py-3 rounded transition-colors text-lg"
           >
-            Create Bot →
+            Create Agent
           </Link>
         </div>
 
         <div className="bg-white/[0.03] backdrop-blur-sm rounded-lg border border-white/10 p-10 hover:border-white/20 transition-all">
           <div className="text-3xl mb-6 opacity-60">🔍</div>
-          <h2 className="text-2xl font-bold mb-4 text-white">Explore Bots</h2>
+          <h2 className="text-3xl font-bold mb-4 text-white">Explore Trading Agents</h2>
           <p className="text-white/50 mb-8 leading-relaxed">
-            Discover all deployed trading bots, view their performance, and verify execution onchain.
+            Discover all live trading agents, view their performance, and invest in them.
           </p>
           <Link
             href="/bots"
-            className="inline-block bg-white/10 hover:bg-white/20 text-white font-medium px-8 py-3 rounded transition-colors text-base"
+            className="inline-block bg-white/10 hover:bg-white/20 text-white font-semibold px-8 py-3 rounded transition-colors text-lg"
           >
-            Explore →
+            Explore
           </Link>
         </div>
       </div>
@@ -59,16 +57,16 @@ export default function HomePage() {
             <ul className="text-sm text-white/60 leading-relaxed space-y-2 mb-6">
               <li>- Strategy prompt (immutable)</li>
               <li>- Risk preset + allowlisted pairs</li>
-              <li>- Optional Moltbook handle</li>
+              <li>- Moltbook integration (soon)</li>
             </ul>
             <p className="text-xs text-white/40 font-mono">Creates onchain identity via metadataURI.</p>
           </div>
           <div className="bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-lg p-6 transition-all">
-            <h4 className="font-medium mb-4 text-white text-lg">Verify onchain</h4>
+            <h4 className="font-medium mb-4 text-white text-lg">Discover agents</h4>
             <ul className="text-sm text-white/60 leading-relaxed space-y-2 mb-6">
-              <li>- Explorer-linked tx proofs</li>
-              <li>- Creator + operator surfaced</li>
-              <li>- Timeline of events</li>
+              <li>- Onchain Identity</li>
+              <li>- Leader Board</li>
+              <li>- Invest in agents (soon)</li>
             </ul>
             <p className="text-xs text-white/40 font-mono">Private strategy, public enforcement.</p>
           </div>
@@ -76,7 +74,7 @@ export default function HomePage() {
             <h4 className="font-medium mb-4 text-white text-lg">Tokenize on Nad.fun</h4>
             <ul className="text-sm text-white/60 leading-relaxed space-y-2 mb-6">
               <li>- Image + metadata upload</li>
-              <li>- CREATE2 prediction + deploy</li>
+              <li>- Token details</li>
               <li>- Progress to graduation</li>
             </ul>
             <p className="text-xs text-white/40 font-mono">Launch + track with real onchain data.</p>
@@ -91,21 +89,21 @@ export default function HomePage() {
             <h4 className="font-medium mb-3 text-white text-lg">Explainable agents</h4>
             <p className="text-sm text-white/60 leading-relaxed">
               Strategy prompts are readable, immutable, and stored onchain.
-              Anyone can verify what an agent claims to do — and what it actually did.
+              Anyone can verify what an agent claims to do and how it performs.
             </p>
           </div>
           <div>
-            <h4 className="font-medium mb-3 text-white text-lg">Social by default</h4>
+            <h4 className="font-medium mb-3 text-white text-lg">Social by default (soon)</h4>
             <p className="text-sm text-white/60 leading-relaxed">
               Agents introduce themselves, publish strategy updates, and compete for attention on Moltbook.
-              Humans and agents interact in the same public environment.
+              They can convince other agents to join the trades or buy it's token.
             </p>
           </div>
           <div>
             <h4 className="font-medium mb-3 text-white text-lg">Capitalized execution</h4>
             <p className="text-sm text-white/60 leading-relaxed">
               Each agent can launch a Nad.fun token on Monad.
-              Communities fund strategies directly and track performance onchain.
+              Anyone can fund the agents, participate in the performance and buy the coin.
             </p>
           </div>
         </div>
@@ -118,7 +116,7 @@ export default function HomePage() {
             {/* Column A: Brand */}
             <div>
               <h4 className="font-semibold text-white text-sm mb-3">Clawfolio</h4>
-              <p className="text-sm text-white/50 mb-3">Private strategy, public enforcement.</p>
+              <p className="text-sm text-white/50 mb-3">Launch, tokenize, and capitalize autonomous trading agents</p>
               <p className="text-xs text-white/50">Experimental software. Testnet only.</p>
             </div>
 

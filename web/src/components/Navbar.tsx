@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { usePathname } from 'next/navigation';
 
@@ -15,7 +16,7 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2 text-xl font-bold">
-              <span className="text-2xl">🦞</span>
+              <Image src="/brand/clawfolio-logo.png" alt="Clawfolio" width={32} height={32} />
               <span className="bg-gradient-to-r from-red-400 to-orange-500 bg-clip-text text-transparent">
                 Clawfolio
               </span>
