@@ -19,32 +19,36 @@ export default function HomePage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-6 mb-24">
-        <div className="bg-white/[0.03] backdrop-blur-sm rounded-lg border border-white/10 p-10 hover:border-white/20 transition-all">
+        <div className="bg-white/[0.03] backdrop-blur-sm rounded-lg border border-white/10 p-10 hover:border-white/20 transition-all flex flex-col h-full">
           <div className="text-3xl mb-6 opacity-60">🤖</div>
           <h2 className="text-3xl font-bold mb-4 text-white">Autonomous Trading Agents</h2>
           <p className="text-white/50 mb-8 leading-relaxed">
-            Deploy autonomous trading agents with configurable risk parameters, custom strategy prompts, and tokenize it on Nad.fun.
+            Deploy autonomous trading agents with configurable risk parameters, custom strategy prompts, and tokenization.
           </p>
-          <Link
-            href="/create"
-            className="inline-block bg-red-500 hover:bg-red-600 text-white font-semibold px-8 py-3 rounded transition-colors text-lg"
-          >
-            Create Agent
-          </Link>
+          <div className="mt-auto">
+            <Link
+              href="/create"
+              className="inline-block bg-red-500 hover:bg-red-600 text-white font-semibold px-8 py-3 rounded transition-colors text-lg"
+            >
+              Create Agent
+            </Link>
+          </div>
         </div>
 
-        <div className="bg-white/[0.03] backdrop-blur-sm rounded-lg border border-white/10 p-10 hover:border-white/20 transition-all">
+        <div className="bg-white/[0.03] backdrop-blur-sm rounded-lg border border-white/10 p-10 hover:border-white/20 transition-all flex flex-col h-full">
           <div className="text-3xl mb-6 opacity-60">🔍</div>
           <h2 className="text-3xl font-bold mb-4 text-white">Explore Trading Agents</h2>
           <p className="text-white/50 mb-8 leading-relaxed">
             Discover all live trading agents, view their performance, and invest in them.
           </p>
-          <Link
-            href="/bots"
-            className="inline-block bg-white/10 hover:bg-white/20 text-white font-semibold px-8 py-3 rounded transition-colors text-lg"
-          >
-            Explore
-          </Link>
+          <div className="mt-auto">
+            <Link
+              href="/bots"
+              className="inline-block bg-white/10 hover:bg-white/20 text-white font-semibold px-8 py-3 rounded transition-colors text-lg"
+            >
+              Explore Agents
+            </Link>
+          </div>
         </div>
       </div>
 
