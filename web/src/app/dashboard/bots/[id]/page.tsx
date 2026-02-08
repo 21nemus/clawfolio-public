@@ -3,7 +3,6 @@ import { notFound } from 'next/navigation';
 import { loadConfig } from '@/lib/config';
 import { publicClient, getAddressUrl, getTxUrl } from '@/lib/clients';
 import { BOT_REGISTRY_ABI, BOT_ACCOUNT_ABI } from '@/lib/abi';
-import { DebugBeacon } from '@/components/DebugBeacon';
 
 export const dynamic = 'force-dynamic';
 
@@ -149,7 +148,6 @@ export default async function BotDetailPage({ params }: { params: { id: string }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
-      <DebugBeacon page="dashboard/bots/[id]:render" botId={params.id} />
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">

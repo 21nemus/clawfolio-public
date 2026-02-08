@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { BotEvent } from '@/hooks/useBotEvents';
 import { analyzeEvents } from '@/lib/perf/analytics';
 import { publicClient } from '@/lib/clients';
@@ -27,41 +27,37 @@ export function PerformancePanel({ botAccount, events, explorerAddressUrlPrefix 
   const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const analytics = analyzeEvents(events);
+  // Memoize analytics to prevent recreation on every render
+  const analytics = useMemo(() => analyzeEvents(events), [events]);
+
+  // Derive stable token list (sorted for consistent key)
+  const tokenAddresses = useMemo(() => 
+    Array.from(analytics.uniqueTokens).sort(), 
+    [analytics.uniqueTokens.size, Array.from(analytics.uniqueTokens).join(',')]
+  );
+
+  // Stable dependency key
+  const tokenKey = useMemo(() => tokenAddresses.join(','), [tokenAddresses]);
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/b5d49497-3c0d-4821-bca6-8ae27b698a6c', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        runId: 'debug1',
-        hypothesisId: 'H2',
-        location: 'web/src/components/PerformancePanel.tsx:35',
-        message: 'PerformancePanel mounted',
-        data: {
-          botAccount,
-          eventsCount: events.length,
-          uniqueTokensCount: analytics.uniqueTokens.size,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
+    let cancelled = false;
 
     const fetchBalances = async () => {
       try {
+        if (cancelled) return;
         setLoading(true);
 
         // Fetch native MON balance
         const native = await publicClient.getBalance({ address: botAccount });
+        if (cancelled) return;
         setNativeBalance(native);
 
         // Fetch ERC20 balances for unique tokens
-        const tokenAddresses = Array.from(analytics.uniqueTokens);
         
         if (tokenAddresses.length === 0) {
+          if (cancelled) return;
           setTokenBalances([]);
+          setLoading(false);
           return;
         }
 
@@ -104,34 +100,22 @@ export function PerformancePanel({ botAccount, events, explorerAddressUrlPrefix 
         });
 
         const balances = await Promise.all(balancePromises);
+        if (cancelled) return;
         setTokenBalances(balances);
-
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/b5d49497-3c0d-4821-bca6-8ae27b698a6c', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            runId: 'debug1',
-            hypothesisId: 'H2',
-            location: 'web/src/components/PerformancePanel.tsx:92',
-            message: 'PerformancePanel balances fetched',
-            data: {
-              tokenAddressesCount: tokenAddresses.length,
-              nonZeroBalancesCount: balances.filter((b) => b.balance > 0n).length,
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
       } catch (err) {
         console.error('Failed to fetch balances:', err);
       } finally {
+        if (cancelled) return;
         setLoading(false);
       }
     };
 
     fetchBalances();
-  }, [botAccount, analytics.uniqueTokens]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [botAccount, tokenKey]);
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
