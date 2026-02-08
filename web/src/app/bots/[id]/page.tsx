@@ -18,7 +18,6 @@ import { DepositControl } from '@/components/actions/DepositControl';
 import { WithdrawControl } from '@/components/actions/WithdrawControl';
 import { TokenizePanel } from '@/components/actions/TokenizePanel';
 import { MoltbookPostPanel } from '@/components/actions/MoltbookPostPanel';
-import { QuickActionsPanel } from '@/components/actions/QuickActionsPanel';
 import { PerformancePanel } from '@/components/PerformancePanel';
 import { PostsFeed } from '@/components/PostsFeed';
 import { StatusChip } from '@/components/StatusChip';
@@ -233,243 +232,286 @@ export default function BotDetailPage() {
     );
   }
 
+  // Derive last activity from events
+  const lastActivity = events && events.length > 0 ? events[0] : null;
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Bot #{bot.botId.toString()}</h1>
-        <p className="text-white/60">
-          <AddressLink address={bot.botAccount} shorten={false} />
-        </p>
-      </div>
-
       {detailsLoading ? (
         <p className="text-white/60">Loading bot details...</p>
       ) : details ? (
-        <div className="space-y-6">
-          <div className="flex flex-wrap gap-2 mb-4">
-            <StatusChip 
-              label={details.paused ? 'Paused' : 'Active'} 
-              variant={details.paused ? 'warning' : 'success'} 
-            />
-            <StatusChip 
-              label={`Lifecycle: ${LIFECYCLE_STATES[details.lifecycleState as keyof typeof LIFECYCLE_STATES]}`}
-              variant="info"
-            />
-            {botToken && (
-              <StatusChip 
-                label="Token Launched" 
-                variant="success" 
-              />
-            )}
-          </div>
-
-          {metadata ? (
-            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-lg font-semibold text-red-400">Identity & Strategy</h3>
-                {isCreator && (
-                  <span className="text-xs text-white/40 italic">Identity is immutable after creation</span>
-                )}
-              </div>
-              <div className="space-y-3 text-sm">
-                {metadata.image ? (
-                  <div className="mb-4">
-                    <img 
-                      src={metadata.image as string} 
-                      alt="Agent avatar" 
-                      className="w-32 h-32 object-cover rounded-lg border border-white/10"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  </div>
+        <>
+          {/* Profile Header */}
+          <div className="mb-8 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+              {/* Left: Bot Identity */}
+              <div className="flex gap-4">
+                {metadata?.image ? (
+                  <img 
+                    src={metadata.image as string} 
+                    alt="Bot avatar" 
+                    className="w-16 h-16 object-cover rounded-lg border border-white/10 flex-shrink-0"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
                 ) : null}
-                {metadata.name ? (
-                  <div>
-                    <span className="text-white/60">Name:</span>
-                    <span className="ml-2 text-white font-medium">{metadata.name as string}</span>
+                <div className="flex-1">
+                  <h1 className="text-3xl font-bold mb-1">
+                    {metadata?.name ? metadata.name as string : `Bot #${bot.botId.toString()}`}
+                  </h1>
+                  {metadata?.handle ? (
+                    <p className="text-white/60 font-mono text-sm mb-2">{metadata.handle as string}</p>
+                  ) : null}
+                  <div className="flex items-center gap-2 text-sm">
+                    <AddressLink address={bot.botAccount} />
+                    <CopyButton text={bot.botAccount} label="address" />
+                    {appConfig.explorerAddressUrlPrefix && (
+                      <a
+                        href={`${appConfig.explorerAddressUrlPrefix}${bot.botAccount}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-white/40 hover:text-red-400 transition-colors"
+                      >
+                        ↗
+                      </a>
+                    )}
                   </div>
-                ) : null}
-                {metadata.description ? (
-                  <div>
-                    <span className="text-white/60">Description:</span>
-                    <p className="mt-1 text-white/80">{metadata.description as string}</p>
-                  </div>
-                ) : null}
-                {metadata.handle ? (
-                  <div>
-                    <span className="text-white/60">Handle:</span>
-                    <span className="ml-2 text-white/80 font-mono text-xs">{metadata.handle as string}</span>
-                  </div>
-                ) : null}
-                {metadata.strategyPrompt ? (
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-white/60">Strategy Prompt:</span>
-                      <div className="flex gap-2">
-                        <CopyButton text={metadata.strategyPrompt as string} label="strategy" />
-                        <button
-                          onClick={() => setStrategyExpanded(!strategyExpanded)}
-                          className="text-xs text-red-400 hover:text-red-300"
-                        >
-                          {strategyExpanded ? 'Collapse' : 'Expand'}
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-white/80 font-mono text-xs bg-black/20 p-3 rounded border border-white/5">
-                      {strategyExpanded 
-                        ? metadata.strategyPrompt as string 
-                        : (metadata.strategyPrompt as string).slice(0, 200) + ((metadata.strategyPrompt as string).length > 200 ? '...' : '')}
-                    </p>
-                    <p className="text-xs text-white/40 mt-1">This prompt guides the agent runner's trading decisions</p>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-              <h3 className="text-lg font-semibold mb-2 text-red-400">Identity & Strategy</h3>
-              <p className="text-white/60 text-sm">Metadata not decodable. Raw URI:</p>
-              <p className="text-white/40 text-xs font-mono mt-2 break-all">{bot.metadataURI}</p>
-            </div>
-          )}
-
-          <ProofPanel
-            title="Bot Details"
-            items={[
-              { label: 'Creator', value: <AddressLink address={details.creator} /> },
-              { label: 'Operator', value: <AddressLink address={details.operator} /> },
-              { 
-                label: 'Lifecycle State', 
-                value: LIFECYCLE_STATES[details.lifecycleState as keyof typeof LIFECYCLE_STATES] 
-              },
-              { label: 'Paused', value: details.paused ? 'Yes' : 'No' },
-              { label: 'Nonce', value: details.nonce.toString() },
-              { 
-                label: 'Max Trade Size', 
-                value: formatTokenAmount(details.riskParams.maxAmountInPerTrade) 
-              },
-              { 
-                label: 'Cooldown', 
-                value: `${details.riskParams.minSecondsBetweenTrades.toString()}s` 
-              },
-            ]}
-          />
-
-          {bot.transactionHash !== '0x0000000000000000000000000000000000000000000000000000000000000000' ? (
-            <ProofPanel
-              title="Creation"
-              items={[
-                { 
-                  label: 'Transaction', 
-                  value: (
-                    <div className="flex items-center gap-2">
-                      <TxLink hash={bot.transactionHash} />
-                      <CopyButton text={bot.transactionHash} label="tx hash" />
-                    </div>
-                  )
-                },
-                { label: 'Block', value: bot.blockNumber.toString() },
-                { label: 'Metadata URI', value: bot.metadataURI.slice(0, 50) + '...' },
-              ]}
-            />
-          ) : (
-            <ProofPanel
-              title="Creation"
-              items={[
-                { label: 'Transaction', value: 'Not available (bot found via direct lookup)' },
-                { label: 'Metadata URI', value: bot.metadataURI.slice(0, 50) + '...' },
-              ]}
-            />
-          )}
-
-          <TokenizePanel 
-            botId={bot.botId} 
-            botToken={botToken || undefined} 
-            isCreator={!!isCreator}
-            botMetadata={metadata}
-          />
-
-          <MoltbookPostPanel
-            botId={bot.botId}
-            botAccountAddress={bot.botAccount}
-            creatorAddress={details.creator}
-            lifecycleLabel={LIFECYCLE_STATES[details.lifecycleState as keyof typeof LIFECYCLE_STATES]}
-            botMetadata={metadata}
-            botToken={botToken || undefined}
-            creationTxHash={bot.transactionHash !== '0x0000000000000000000000000000000000000000000000000000000000000000' ? bot.transactionHash : undefined}
-            isCreator={!!isCreator}
-          />
-
-          {isCreator && (
-            <div className="space-y-4">
-              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-                <h3 className="text-lg font-semibold mb-4 text-red-400">Creator Actions</h3>
-                <div className="space-y-6">
-                  <details className="group">
-                    <summary className="cursor-pointer list-none flex items-center justify-between py-2 hover:text-red-400 transition-colors">
-                      <span className="font-medium">⏸️ Pause/Resume</span>
-                      <span className="text-white/40 group-open:rotate-180 transition-transform">▼</span>
-                    </summary>
-                    <div className="mt-4 pl-4">
-                      <PauseControl botAccount={bot.botAccount} currentlyPaused={details.paused} />
-                    </div>
-                  </details>
-
-                  <details className="group">
-                    <summary className="cursor-pointer list-none flex items-center justify-between py-2 hover:text-red-400 transition-colors">
-                      <span className="font-medium">🔄 Update Lifecycle</span>
-                      <span className="text-white/40 group-open:rotate-180 transition-transform">▼</span>
-                    </summary>
-                    <div className="mt-4 pl-4">
-                      <LifecycleControl botAccount={bot.botAccount} currentState={details.lifecycleState} />
-                    </div>
-                  </details>
-
-                  <details className="group">
-                    <summary className="cursor-pointer list-none flex items-center justify-between py-2 hover:text-red-400 transition-colors">
-                      <span className="font-medium">💸 Withdraw</span>
-                      <span className="text-white/40 group-open:rotate-180 transition-transform">▼</span>
-                    </summary>
-                    <div className="mt-4 pl-4">
-                      <WithdrawControl botAccount={bot.botAccount} creatorAddress={details.creator} />
-                    </div>
-                  </details>
                 </div>
               </div>
-            </div>
-          )}
 
-          <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-            <h3 className="text-lg font-semibold mb-4 text-red-400">Deposit Funds</h3>
-            <DepositControl botAccount={bot.botAccount} userAddress={address!} />
+              {/* Right: Status Pills */}
+              <div className="flex flex-wrap gap-2">
+                <StatusChip 
+                  label={LIFECYCLE_STATES[details.lifecycleState as keyof typeof LIFECYCLE_STATES]}
+                  variant="info"
+                />
+                <StatusChip 
+                  label={details.paused ? 'Paused' : 'Active'} 
+                  variant={details.paused ? 'warning' : 'success'} 
+                />
+                <StatusChip 
+                  label={botToken ? 'Token Launched' : 'No Token'} 
+                  variant={botToken ? 'success' : 'default'} 
+                />
+              </div>
+            </div>
           </div>
 
-          {/* Quick Actions Panel (enhanced UX) */}
-          {isCreator && (
-            <QuickActionsPanel
-              botId={bot.botId}
-              botAccount={bot.botAccount}
-              creator={details.creator}
-              operator={details.operator}
-              lifecycleState={details.lifecycleState}
-              paused={details.paused}
-              isCreator={!!isCreator}
-              isOperator={false}
-              userAddress={address}
-            />
-          )}
+          {/* 2-Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          <PerformancePanel 
-            botAccount={bot.botAccount}
-            events={events}
-            explorerAddressUrlPrefix={appConfig.explorerAddressUrlPrefix}
-          />
+            {/* Left Column: Primary Content */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Identity & Strategy */}
+              {metadata ? (
+                <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-red-400">Identity & Strategy</h3>
+                    {isCreator && (
+                      <span className="text-xs text-white/40 italic">Identity is immutable after creation</span>
+                    )}
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    {metadata.description ? (
+                      <div>
+                        <span className="text-white/60">Description:</span>
+                        <p className="mt-1 text-white/80">{metadata.description as string}</p>
+                      </div>
+                    ) : null}
+                    {metadata.strategyPrompt ? (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-white/60">Strategy Prompt:</span>
+                          <div className="flex gap-2">
+                            <CopyButton text={metadata.strategyPrompt as string} label="strategy" />
+                            <button
+                              onClick={() => setStrategyExpanded(!strategyExpanded)}
+                              className="text-xs text-red-400 hover:text-red-300"
+                            >
+                              {strategyExpanded ? 'Collapse' : 'Expand'}
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-white/80 font-mono text-xs bg-black/20 p-3 rounded border border-white/5">
+                          {strategyExpanded 
+                            ? metadata.strategyPrompt as string 
+                            : (metadata.strategyPrompt as string).slice(0, 200) + ((metadata.strategyPrompt as string).length > 200 ? '...' : '')}
+                        </p>
+                        <p className="text-xs text-white/40 mt-1">This prompt guides the agent runner's trading decisions</p>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+                  <h3 className="text-lg font-semibold mb-2 text-red-400">Identity & Strategy</h3>
+                  <p className="text-white/60 text-sm">Metadata not decodable. Raw URI:</p>
+                  <p className="text-white/40 text-xs font-mono mt-2 break-all">{bot.metadataURI}</p>
+                </div>
+              )}
 
-          <PostsFeed botId={id} />
+              {/* Onchain Proof - Merged */}
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+                <h3 className="text-lg font-semibold mb-4 text-red-400">Onchain Proof</h3>
+                
+                <div className="space-y-6">
+                  {/* Creation Group */}
+                  <div>
+                    <h4 className="text-sm font-medium text-white/80 mb-3">Creation</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-start justify-between">
+                        <span className="text-white/60">Transaction:</span>
+                        {bot.transactionHash !== '0x0000000000000000000000000000000000000000000000000000000000000000' ? (
+                          <div className="flex items-center gap-2">
+                            <TxLink hash={bot.transactionHash} />
+                            <CopyButton text={bot.transactionHash} label="tx" />
+                          </div>
+                        ) : (
+                          <span className="text-white/60">Not available (direct lookup)</span>
+                        )}
+                      </div>
+                      {bot.transactionHash !== '0x0000000000000000000000000000000000000000000000000000000000000000' && (
+                        <div className="flex items-start justify-between">
+                          <span className="text-white/60">Block:</span>
+                          <span className="text-white/80">{bot.blockNumber.toString()}</span>
+                        </div>
+                      )}
+                      <div className="flex items-start justify-between">
+                        <span className="text-white/60">Metadata URI:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-white/80 font-mono text-xs truncate max-w-xs">
+                            {bot.metadataURI.slice(0, 40)}...
+                          </span>
+                          <CopyButton text={bot.metadataURI} label="URI" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-          <EventTimeline events={events} loading={eventsLoading} />
-        </div>
+                  {/* Runtime Group */}
+                  <div>
+                    <h4 className="text-sm font-medium text-white/80 mb-3">Runtime</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-start justify-between">
+                        <span className="text-white/60">Creator:</span>
+                        <AddressLink address={details.creator} />
+                      </div>
+                      <div className="flex items-start justify-between">
+                        <span className="text-white/60">Operator:</span>
+                        <AddressLink address={details.operator} />
+                      </div>
+                      <div className="flex items-start justify-between">
+                        <span className="text-white/60">Nonce:</span>
+                        <span className="text-white/80 font-medium">{details.nonce.toString()}</span>
+                      </div>
+                      {lastActivity && (
+                        <div className="flex items-start justify-between">
+                          <span className="text-white/60">Last Activity:</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-white/80 text-xs">{lastActivity.type}</span>
+                            <TxLink hash={lastActivity.transactionHash} />
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-start justify-between">
+                        <span className="text-white/60">Max Trade Size:</span>
+                        <span className="text-white/80">{formatTokenAmount(details.riskParams.maxAmountInPerTrade)}</span>
+                      </div>
+                      <div className="flex items-start justify-between">
+                        <span className="text-white/60">Cooldown:</span>
+                        <span className="text-white/80">{details.riskParams.minSecondsBetweenTrades.toString()}s</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Dashboard */}
+              <PerformancePanel 
+                botAccount={bot.botAccount}
+                events={events}
+                explorerAddressUrlPrefix={appConfig.explorerAddressUrlPrefix}
+              />
+
+              {/* Activity Timeline */}
+              <EventTimeline events={events} loading={eventsLoading} />
+            </div>
+
+            {/* Right Column: Secondary Content */}
+            <div className="space-y-6">
+              {/* Tokenization */}
+              <TokenizePanel 
+                botId={bot.botId} 
+                botToken={botToken || undefined} 
+                isCreator={!!isCreator}
+                botMetadata={metadata}
+              />
+
+              {/* Creator Actions */}
+              {isCreator && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-red-400">Creator Actions</h3>
+                  
+                  {/* Pause/Resume */}
+                  <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-orange-500/20 p-4">
+                    <h4 className="font-medium text-white mb-3">⏸️ Pause/Resume</h4>
+                    <p className="text-xs text-white/60 mb-3">
+                      {details.paused ? 'Resume bot operations' : 'Temporarily pause all operations'}
+                    </p>
+                    <PauseControl botAccount={bot.botAccount} currentlyPaused={details.paused} />
+                  </div>
+
+                  {/* Lifecycle */}
+                  <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4">
+                    <h4 className="font-medium text-white mb-3">🔄 Update Lifecycle</h4>
+                    <p className="text-xs text-white/60 mb-3">
+                      Change bot visibility and trading permissions
+                    </p>
+                    <LifecycleControl botAccount={bot.botAccount} currentState={details.lifecycleState} />
+                  </div>
+
+                  {/* Deposit */}
+                  {address && (
+                    <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4">
+                      <h4 className="font-medium text-white mb-3">💰 Deposit Funds</h4>
+                      <p className="text-xs text-white/60 mb-3">
+                        Step 1: Approve token | Step 2: Deposit to bot
+                      </p>
+                      <DepositControl botAccount={bot.botAccount} userAddress={address} />
+                    </div>
+                  )}
+
+                  {/* Withdraw */}
+                  <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-red-500/20 p-4">
+                    <h4 className="font-medium text-white mb-3">💸 Withdraw Funds</h4>
+                    <p className="text-xs text-white/60 mb-3">
+                      Withdraw tokens from bot account (creator only)
+                    </p>
+                    <WithdrawControl botAccount={bot.botAccount} creatorAddress={details.creator} />
+                  </div>
+
+                  {/* Moltbook Publishing */}
+                  {appConfig.moltbookEnabled && (
+                    <MoltbookPostPanel
+                      botId={bot.botId}
+                      botAccountAddress={bot.botAccount}
+                      creatorAddress={details.creator}
+                      lifecycleLabel={LIFECYCLE_STATES[details.lifecycleState as keyof typeof LIFECYCLE_STATES]}
+                      botMetadata={metadata}
+                      botToken={botToken || undefined}
+                      creationTxHash={bot.transactionHash !== '0x0000000000000000000000000000000000000000000000000000000000000000' ? bot.transactionHash : undefined}
+                      isCreator={!!isCreator}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Social Feed */}
+              <PostsFeed botId={id} />
+            </div>
+          </div>
+        </>
       ) : (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6">
           <p className="text-red-400">Failed to load bot details</p>

@@ -54,10 +54,7 @@ export function PostsFeed({ botId }: { botId: string }) {
     return (
       <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
         <h3 className="text-lg font-semibold mb-4 text-red-400">📝 Social Feed</h3>
-        <p className="text-white/60 text-sm mb-3">Social feed not configured.</p>
-        <p className="text-white/40 text-xs">
-          Set <span className="font-mono">NEXT_PUBLIC_OPENCLAW_BASE_URL</span> to enable the social layer.
-        </p>
+        <p className="text-white/60 text-sm">Social not configured by operator.</p>
       </div>
     );
   }
