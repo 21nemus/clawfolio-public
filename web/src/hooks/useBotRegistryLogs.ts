@@ -13,9 +13,9 @@ export interface BotCreatedEvent {
   blockNumber: bigint;
 }
 
-const CHUNK_SIZE = 100n;
+const CHUNK_SIZE = 500n; // Increased from 100n for fewer requests
 const MAX_EVENTS = 200;
-const MAX_CHUNKS = 50; // safety cap (50 chunks * 100 blocks = 5000 blocks max lookback)
+const MAX_CHUNKS = 50; // safety cap
 const LOOKBACK_WINDOW = 5000n; // recent block lookback for fast queries
 
 export function useBotRegistryLogs(filterAddress?: `0x${string}`) {
@@ -25,39 +25,38 @@ export function useBotRegistryLogs(filterAddress?: `0x${string}`) {
   const [refetchCounter, setRefetchCounter] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchLogs = async () => {
       const config = loadConfig();
       
       if (!config.botRegistry) {
-        setError('BotRegistry address not configured');
-        setLoading(false);
+        if (!cancelled) {
+          setError('BotRegistry address not configured');
+          setLoading(false);
+        }
         return;
       }
 
       try {
-        setLoading(true);
-        setError(null);
+        if (!cancelled) {
+          setLoading(true);
+          setError(null);
+        }
 
         // Get latest block number
         const latestBlock = await publicClient.getBlockNumber();
+        if (cancelled) return;
         
         // Calculate lookback start (recent window for fast queries)
         const lookbackStart = latestBlock - LOOKBACK_WINDOW;
         const effectiveStartBlock = lookbackStart > config.startBlock ? lookbackStart : config.startBlock;
         
-        // Bounded backwards scan in 100-block chunks
-        const allRawLogs: any[] = [];
-        let endBlock = latestBlock;
-        let chunksProcessed = 0;
+        let allRawLogs: any[] = [];
 
-        while (chunksProcessed < MAX_CHUNKS && allRawLogs.length < MAX_EVENTS) {
-          const fromBlock = endBlock - CHUNK_SIZE + 1n > effectiveStartBlock 
-            ? endBlock - CHUNK_SIZE + 1n 
-            : effectiveStartBlock;
-
-          if (fromBlock > endBlock) break;
-
-          const chunkLogs = await publicClient.getLogs({
+        // Try single getLogs first (faster if RPC supports it)
+        try {
+          allRawLogs = await publicClient.getLogs({
             address: config.botRegistry,
             event: {
               type: 'event',
@@ -70,19 +69,55 @@ export function useBotRegistryLogs(filterAddress?: `0x${string}`) {
                 { name: 'metadataURI', type: 'string', indexed: false },
               ],
             },
-            fromBlock,
-            toBlock: endBlock,
+            fromBlock: effectiveStartBlock,
+            toBlock: latestBlock,
           });
+          if (cancelled) return;
+        } catch (singleCallError) {
+          // Single call failed (range too large), fallback to chunking
+          console.log('Single getLogs failed, using chunked scan:', singleCallError);
+          if (cancelled) return;
 
-          allRawLogs.push(...chunkLogs);
-          chunksProcessed++;
+          let endBlock = latestBlock;
+          let chunksProcessed = 0;
 
-          // Stop if we reached effective start block
-          if (fromBlock <= effectiveStartBlock) break;
+          while (chunksProcessed < MAX_CHUNKS && allRawLogs.length < MAX_EVENTS && !cancelled) {
+            const fromBlock = endBlock - CHUNK_SIZE + 1n > effectiveStartBlock 
+              ? endBlock - CHUNK_SIZE + 1n 
+              : effectiveStartBlock;
 
-          // Move to next chunk
-          endBlock = fromBlock - 1n;
+            if (fromBlock > endBlock) break;
+
+            const chunkLogs = await publicClient.getLogs({
+              address: config.botRegistry,
+              event: {
+                type: 'event',
+                name: 'BotCreated',
+                inputs: [
+                  { name: 'botId', type: 'uint256', indexed: true },
+                  { name: 'botAccount', type: 'address', indexed: true },
+                  { name: 'creator', type: 'address', indexed: true },
+                  { name: 'operator', type: 'address', indexed: false },
+                  { name: 'metadataURI', type: 'string', indexed: false },
+                ],
+              },
+              fromBlock,
+              toBlock: endBlock,
+            });
+
+            if (cancelled) return;
+            allRawLogs.push(...chunkLogs);
+            chunksProcessed++;
+
+            // Stop if we reached effective start block
+            if (fromBlock <= effectiveStartBlock) break;
+
+            // Move to next chunk
+            endBlock = fromBlock - 1n;
+          }
         }
+
+        if (cancelled) return;
 
         let parsedLogs = allRawLogs.map((log) => ({
           botId: log.args.botId!,
@@ -109,16 +144,26 @@ export function useBotRegistryLogs(filterAddress?: `0x${string}`) {
           parsedLogs = parsedLogs.slice(0, MAX_EVENTS);
         }
 
-        setLogs(parsedLogs);
+        if (!cancelled) {
+          setLogs(parsedLogs);
+        }
       } catch (err) {
         console.error('Failed to fetch BotCreated logs:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch logs');
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch logs');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchLogs();
+
+    return () => {
+      cancelled = true;
+    };
   }, [filterAddress, refetchCounter]);
 
   return { logs, loading, error, refetch: () => setRefetchCounter((c) => c + 1) };

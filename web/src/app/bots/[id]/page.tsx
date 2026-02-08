@@ -46,22 +46,23 @@ export default function BotDetailPage() {
   const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
   const [strategyExpanded, setStrategyExpanded] = useState(false);
 
-  // Find bot in logs or do direct lookup (non-blocking)
+  // Check logs first (fast path if bot is recent)
   useEffect(() => {
     const botFromLogs = logs.find((b) => b.botId.toString() === id);
-    
-    if (botFromLogs) {
+    if (botFromLogs && !bot) {
       setBot(botFromLogs);
       setBotNotFound(false);
-      return;
     }
+  }, [id, logs, bot]);
 
-    // Start direct lookup immediately (don't wait for logs)
-    // This runs in parallel with log loading for fast initial render
+  // Direct lookup effect (runs on id change only)
+  useEffect(() => {
+    let cancelled = false;
+
     const directLookup = async () => {
       const config = loadConfig();
       if (!config.botRegistry) {
-        setBotNotFound(true);
+        if (!cancelled) setBotNotFound(true);
         return;
       }
 
@@ -69,6 +70,7 @@ export default function BotDetailPage() {
         setDirectLookupLoading(true);
         const botId = BigInt(id);
 
+        // Fast registry reads (no log scan yet)
         const [botAccount, metadataURI] = await Promise.all([
           publicClient.readContract({
             address: config.botRegistry,
@@ -84,90 +86,112 @@ export default function BotDetailPage() {
           }) as Promise<string>,
         ]);
 
+        if (cancelled) return;
+
         if (!botAccount || botAccount === '0x0000000000000000000000000000000000000000') {
           setBotNotFound(true);
           return;
         }
 
-        // Attempt bounded log search for creation proof
-        let transactionHash: `0x${string}` = '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
-        let blockNumber: bigint = 0n;
-        let creator: `0x${string}` = '0x0000000000000000000000000000000000000000' as `0x${string}`;
-        let operator: `0x${string}` = '0x0000000000000000000000000000000000000000' as `0x${string}`;
-
-        try {
-          const latestBlock = await publicClient.getBlockNumber();
-          const CHUNK_SIZE = 100n;
-          const MAX_CHUNKS = 30; // 3000 blocks max
-          
-          let currentBlock = latestBlock;
-          let chunksScanned = 0;
-          let found = false;
-
-          while (chunksScanned < MAX_CHUNKS && currentBlock > config.startBlock && !found) {
-            const fromBlock = currentBlock - CHUNK_SIZE > config.startBlock 
-              ? currentBlock - CHUNK_SIZE 
-              : config.startBlock;
-
-            const logs = await publicClient.getLogs({
-              address: config.botRegistry,
-              event: {
-                type: 'event',
-                name: 'BotCreated',
-                inputs: [
-                  { type: 'uint256', indexed: true, name: 'botId' },
-                  { type: 'address', indexed: true, name: 'creator' },
-                  { type: 'address', indexed: false, name: 'botAccount' },
-                  { type: 'address', indexed: false, name: 'operator' },
-                  { type: 'string', indexed: false, name: 'metadataURI' },
-                ],
-              },
-              fromBlock,
-              toBlock: currentBlock,
-            });
-
-            for (const log of logs) {
-              if (log.args.botId === botId) {
-                transactionHash = log.transactionHash as `0x${string}`;
-                blockNumber = log.blockNumber;
-                creator = log.args.creator as `0x${string}`;
-                operator = log.args.operator as `0x${string}`;
-                found = true;
-                break;
-              }
-            }
-
-            currentBlock = fromBlock - 1n;
-            chunksScanned++;
-          }
-        } catch (err) {
-          console.log('Bounded log search failed, using placeholders:', err);
-        }
-
-        // Construct bot object (with creation proof if found)
+        // Set bot immediately with placeholder creation proof
         setBot({
           botId,
           botAccount,
-          creator,
-          operator,
+          creator: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+          operator: '0x0000000000000000000000000000000000000000' as `0x${string}`,
           metadataURI,
-          transactionHash,
-          blockNumber,
+          transactionHash: '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`,
+          blockNumber: 0n,
         });
         setBotNotFound(false);
       } catch (err) {
         console.error('Direct lookup failed:', err);
-        setBotNotFound(true);
+        if (!cancelled) setBotNotFound(true);
       } finally {
-        setDirectLookupLoading(false);
+        if (!cancelled) setDirectLookupLoading(false);
       }
     };
 
-    // Start lookup immediately if bot not in logs
-    if (!botFromLogs) {
-      directLookup();
+    directLookup();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // Background creation-proof scan (runs after bot is set with placeholder)
+  useEffect(() => {
+    if (!bot || bot.transactionHash !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+      return; // Skip if no bot or proof already found
     }
-  }, [id, logs]);
+
+    let cancelled = false;
+
+    const fetchCreationProof = async () => {
+      const config = loadConfig();
+      if (!config.botRegistry) return;
+
+      try {
+        const latestBlock = await publicClient.getBlockNumber();
+        const CHUNK_SIZE = 100n;
+        const MAX_CHUNKS = 30;
+        
+        let currentBlock = latestBlock;
+        let chunksScanned = 0;
+        let found = false;
+
+        while (chunksScanned < MAX_CHUNKS && currentBlock > config.startBlock && !found && !cancelled) {
+          const fromBlock = currentBlock - CHUNK_SIZE > config.startBlock 
+            ? currentBlock - CHUNK_SIZE 
+            : config.startBlock;
+
+          const logs = await publicClient.getLogs({
+            address: config.botRegistry,
+            event: {
+              type: 'event',
+              name: 'BotCreated',
+              inputs: [
+                { type: 'uint256', indexed: true, name: 'botId' },
+                { type: 'address', indexed: true, name: 'creator' },
+                { type: 'address', indexed: false, name: 'botAccount' },
+                { type: 'address', indexed: false, name: 'operator' },
+                { type: 'string', indexed: false, name: 'metadataURI' },
+              ],
+            },
+            fromBlock,
+            toBlock: currentBlock,
+          });
+
+          for (const log of logs) {
+            if (log.args.botId === bot.botId) {
+              if (!cancelled) {
+                setBot((prev) => prev ? {
+                  ...prev,
+                  transactionHash: log.transactionHash as `0x${string}`,
+                  blockNumber: log.blockNumber,
+                  creator: log.args.creator as `0x${string}`,
+                  operator: log.args.operator as `0x${string}`,
+                } : null);
+              }
+              found = true;
+              break;
+            }
+          }
+
+          currentBlock = fromBlock - 1n;
+          chunksScanned++;
+        }
+      } catch (err) {
+        console.log('Background creation-proof scan failed:', err);
+      }
+    };
+
+    fetchCreationProof();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bot]);
 
   useEffect(() => {
     if (bot) {
@@ -189,12 +213,11 @@ export default function BotDetailPage() {
 
   const isCreator = details && address && details.creator.toLowerCase() === address.toLowerCase();
 
-  if (logsLoading || directLookupLoading) {
+  // Only block if we don't have a bot yet
+  if (!bot && directLookupLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <p className="text-white/60">
-          {directLookupLoading ? 'Looking up bot onchain...' : 'Loading...'}
-        </p>
+        <p className="text-white/60">Looking up bot onchain...</p>
       </div>
     );
   }

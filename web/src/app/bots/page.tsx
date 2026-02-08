@@ -42,17 +42,22 @@ export default function BotsPage() {
     );
   });
 
-  // Enrich visible bots with identity + token status
+  // Enrich visible bots with identity + token status (limit to first 24 for performance)
   useEffect(() => {
     if (loading || filteredLogs.length === 0) return;
+
+    let cancelled = false;
 
     const enrichBots = async () => {
       const config = loadConfig();
       if (!config.botRegistry) return;
 
       try {
+        // Only enrich first 24 bots initially
+        const botsToEnrich = filteredLogs.slice(0, 24);
+        
         const enrichmentResults = await Promise.all(
-          filteredLogs.map(async (bot) => {
+          botsToEnrich.map(async (bot) => {
             try {
               const [metadataURI, tokenAddress] = await Promise.all([
                 publicClient.readContract({
@@ -90,17 +95,26 @@ export default function BotsPage() {
           })
         );
 
+        if (cancelled) return;
+
         const newEnrichments = new Map<string, BotEnrichment>();
         enrichmentResults.forEach(({ botId, enrichment }) => {
           newEnrichments.set(botId, enrichment);
         });
-        setEnrichments(newEnrichments);
+        
+        if (!cancelled) {
+          setEnrichments(newEnrichments);
+        }
       } catch (err) {
         console.error('Failed to enrich bots:', err);
       }
     };
 
     enrichBots();
+
+    return () => {
+      cancelled = true;
+    };
   }, [filteredLogs, loading]);
 
   // Direct lookup by botId if search query is numeric
