@@ -19,6 +19,7 @@ import { WithdrawControl } from '@/components/actions/WithdrawControl';
 import { TokenizePanel } from '@/components/actions/TokenizePanel';
 import { MoltbookPostPanel } from '@/components/actions/MoltbookPostPanel';
 import { PerformancePanel } from '@/components/PerformancePanel';
+import { DebugBeacon } from '@/components/DebugBeacon';
 import { PostsFeed } from '@/components/PostsFeed';
 import { StatusChip } from '@/components/StatusChip';
 import { CopyButton } from '@/components/CopyButton';
@@ -193,6 +194,7 @@ export default function BotDetailPage() {
   if (logsLoading || directLookupLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
+        <DebugBeacon page="bots/[id]:loading" botId={id} />
         <p className="text-white/60">
           {directLookupLoading ? 'Looking up bot onchain...' : 'Loading...'}
         </p>
@@ -203,6 +205,7 @@ export default function BotDetailPage() {
   if (botNotFound || !bot) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
+        <DebugBeacon page="bots/[id]:notFound" botId={id} />
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6">
           <p className="text-red-400">Bot #{id} not found</p>
         </div>
@@ -212,6 +215,7 @@ export default function BotDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      <DebugBeacon page="bots/[id]:render" botId={id} />
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2">Bot #{bot.botId.toString()}</h1>
         <p className="text-white/60">

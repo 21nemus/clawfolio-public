@@ -46,6 +46,25 @@ export function MoltbookPostPanel({
   const [success, setSuccess] = useState('');
   const [retryAfter, setRetryAfter] = useState<number | null>(null);
 
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/b5d49497-3c0d-4821-bca6-8ae27b698a6c', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      runId: 'debug1',
+      hypothesisId: 'H3',
+      location: 'web/src/components/actions/MoltbookPostPanel.tsx:55',
+      message: 'MoltbookPostPanel render check',
+      data: {
+        isCreator,
+        moltbookEnabled: appConfig.moltbookEnabled,
+        addressConnected: !!address,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+
   // Only show if creator is connected and Moltbook is enabled
   if (!isCreator || !appConfig.moltbookEnabled) {
     return null;

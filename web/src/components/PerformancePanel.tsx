@@ -30,6 +30,25 @@ export function PerformancePanel({ botAccount, events, explorerAddressUrlPrefix 
   const analytics = analyzeEvents(events);
 
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/b5d49497-3c0d-4821-bca6-8ae27b698a6c', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        runId: 'debug1',
+        hypothesisId: 'H2',
+        location: 'web/src/components/PerformancePanel.tsx:35',
+        message: 'PerformancePanel mounted',
+        data: {
+          botAccount,
+          eventsCount: events.length,
+          uniqueTokensCount: analytics.uniqueTokens.size,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
     const fetchBalances = async () => {
       try {
         setLoading(true);
@@ -86,6 +105,24 @@ export function PerformancePanel({ botAccount, events, explorerAddressUrlPrefix 
 
         const balances = await Promise.all(balancePromises);
         setTokenBalances(balances);
+
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/b5d49497-3c0d-4821-bca6-8ae27b698a6c', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            runId: 'debug1',
+            hypothesisId: 'H2',
+            location: 'web/src/components/PerformancePanel.tsx:92',
+            message: 'PerformancePanel balances fetched',
+            data: {
+              tokenAddressesCount: tokenAddresses.length,
+              nonZeroBalancesCount: balances.filter((b) => b.balance > 0n).length,
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
       } catch (err) {
         console.error('Failed to fetch balances:', err);
       } finally {
