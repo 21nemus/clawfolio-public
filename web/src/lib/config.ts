@@ -13,6 +13,8 @@ export interface AppConfig {
   startBlock: bigint;
   openclawBaseUrl: string | null;
   moltbookEnabled: boolean;
+  moltbookApiBase: string;
+  moltbookSubmolt: string;
   walletConnectProjectId: string | null;
   demoCreatorAddr: `0x${string}` | null;
 }
@@ -49,6 +51,10 @@ function getEnv(key: string, defaultValue?: string): string | undefined {
       return process.env.NEXT_PUBLIC_OPENCLAW_BASE_URL || defaultValue;
     case 'NEXT_PUBLIC_MOLTBOOK_ENABLED':
       return process.env.NEXT_PUBLIC_MOLTBOOK_ENABLED || defaultValue;
+    case 'NEXT_PUBLIC_MOLTBOOK_API_BASE':
+      return process.env.NEXT_PUBLIC_MOLTBOOK_API_BASE || defaultValue;
+    case 'NEXT_PUBLIC_MOLTBOOK_SUBMOLT':
+      return process.env.NEXT_PUBLIC_MOLTBOOK_SUBMOLT || defaultValue;
     case 'NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID':
       return process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || defaultValue;
     case 'NEXT_PUBLIC_DEMO_CREATOR_ADDR':
@@ -85,6 +91,8 @@ export function loadConfig(): AppConfig {
   const startBlock = BigInt(getEnv('NEXT_PUBLIC_START_BLOCK', '0') || '0');
   const openclawBaseUrl = getEnv('NEXT_PUBLIC_OPENCLAW_BASE_URL') || null;
   const moltbookEnabled = getEnv('NEXT_PUBLIC_MOLTBOOK_ENABLED', 'false') === 'true';
+  const moltbookApiBase = getEnv('NEXT_PUBLIC_MOLTBOOK_API_BASE', 'https://www.moltbook.com/api/v1') || 'https://www.moltbook.com/api/v1';
+  const moltbookSubmolt = getEnv('NEXT_PUBLIC_MOLTBOOK_SUBMOLT', 'moltiversehackathon') || 'moltiversehackathon';
   const walletConnectProjectId = getEnv('NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID') || null;
   // Demo creator address for read-only dashboard (defaults to deployer)
   const demoCreatorAddr = parseAddress(getEnv('NEXT_PUBLIC_DEMO_CREATOR_ADDR', '0xd641Fd6e02036242Da43BDa0c0fb086707EB5223'));
@@ -99,6 +107,8 @@ export function loadConfig(): AppConfig {
     startBlock,
     openclawBaseUrl,
     moltbookEnabled,
+    moltbookApiBase,
+    moltbookSubmolt,
     walletConnectProjectId,
     demoCreatorAddr,
   };
@@ -113,6 +123,10 @@ export function getConfigIssues(config: AppConfig): string[] {
   
   if (!config.rpcHttpUrl || config.rpcHttpUrl.includes('localhost')) {
     issues.push('RPC URL may be invalid or pointing to localhost');
+  }
+
+  if (config.moltbookEnabled && (!config.moltbookApiBase || !config.moltbookApiBase.startsWith('https://www.moltbook.com'))) {
+    issues.push('Moltbook enabled but API base is invalid (must start with https://www.moltbook.com)');
   }
   
   // Skip WalletConnect warning - injected wallets only mode

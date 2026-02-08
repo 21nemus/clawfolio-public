@@ -17,6 +17,7 @@ import { LifecycleControl } from '@/components/actions/LifecycleControl';
 import { DepositControl } from '@/components/actions/DepositControl';
 import { WithdrawControl } from '@/components/actions/WithdrawControl';
 import { TokenizePanel } from '@/components/actions/TokenizePanel';
+import { MoltbookPostPanel } from '@/components/actions/MoltbookPostPanel';
 import { PostsFeed } from '@/components/PostsFeed';
 import { StatusChip } from '@/components/StatusChip';
 import { CopyButton } from '@/components/CopyButton';
@@ -361,6 +362,17 @@ export default function BotDetailPage() {
             botToken={botToken || undefined} 
             isCreator={!!isCreator}
             botMetadata={metadata}
+          />
+
+          <MoltbookPostPanel
+            botId={bot.botId}
+            botAccountAddress={bot.botAccount}
+            creatorAddress={details.creator}
+            lifecycleLabel={LIFECYCLE_STATES[details.lifecycleState as keyof typeof LIFECYCLE_STATES]}
+            botMetadata={metadata}
+            botToken={botToken || undefined}
+            creationTxHash={bot.transactionHash !== '0x0000000000000000000000000000000000000000000000000000000000000000' ? bot.transactionHash : undefined}
+            isCreator={!!isCreator}
           />
 
           {isCreator && (
