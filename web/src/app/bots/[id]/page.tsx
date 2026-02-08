@@ -18,6 +18,7 @@ import { DepositControl } from '@/components/actions/DepositControl';
 import { WithdrawControl } from '@/components/actions/WithdrawControl';
 import { TokenizePanel } from '@/components/actions/TokenizePanel';
 import { MoltbookPostPanel } from '@/components/actions/MoltbookPostPanel';
+import { PerformancePanel } from '@/components/PerformancePanel';
 import { PostsFeed } from '@/components/PostsFeed';
 import { StatusChip } from '@/components/StatusChip';
 import { CopyButton } from '@/components/CopyButton';
@@ -39,6 +40,8 @@ export default function BotDetailPage() {
   const { details, loading: detailsLoading } = useBotDetails(bot?.botAccount);
   const { events, loading: eventsLoading } = useBotEvents(bot?.botAccount);
   const { token: botToken } = useBotToken(bot?.botId);
+  
+  const appConfig = loadConfig();
 
   const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
   const [strategyExpanded, setStrategyExpanded] = useState(false);
@@ -418,6 +421,12 @@ export default function BotDetailPage() {
             <h3 className="text-lg font-semibold mb-4 text-red-400">Deposit Funds</h3>
             <DepositControl botAccount={bot.botAccount} userAddress={address!} />
           </div>
+
+          <PerformancePanel 
+            botAccount={bot.botAccount}
+            events={events}
+            explorerAddressUrlPrefix={appConfig.explorerAddressUrlPrefix}
+          />
 
           <PostsFeed botId={id} />
 

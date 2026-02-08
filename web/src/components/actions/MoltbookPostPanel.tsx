@@ -47,7 +47,7 @@ export function MoltbookPostPanel({
   const [retryAfter, setRetryAfter] = useState<number | null>(null);
 
   // Only show if creator is connected and Moltbook is enabled
-  if (!isCreator || !appConfig.moltbookEnabled || address !== creatorAddress) {
+  if (!isCreator || !appConfig.moltbookEnabled) {
     return null;
   }
 

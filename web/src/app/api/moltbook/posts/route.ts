@@ -10,18 +10,28 @@ import { NextRequest, NextResponse } from 'next/server';
  * - Only posts to https://www.moltbook.com/api/v1
  */
 
-const ALLOWED_ORIGINS = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'https://clawfolio.vercel.app',
-  // Add your production domain here
-];
+function getAllowedOrigins(): string[] {
+  const customOrigins = process.env.MOLTBOOK_ALLOWED_ORIGINS;
+  const defaults = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://clawfolio.vercel.app',
+    'https://clawfolio-public.vercel.app',
+  ];
+  
+  if (customOrigins) {
+    return [...defaults, ...customOrigins.split(',').map(o => o.trim())];
+  }
+  
+  return defaults;
+}
 
 export async function POST(request: NextRequest) {
   try {
     // Origin validation
     const origin = request.headers.get('origin');
-    if (!origin || !ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed))) {
+    const allowedOrigins = getAllowedOrigins();
+    if (!origin || !allowedOrigins.some(allowed => origin.startsWith(allowed))) {
       console.warn('Rejected request from origin:', origin);
       return NextResponse.json(
         { error: 'Forbidden: Invalid origin' },
@@ -33,9 +43,9 @@ export async function POST(request: NextRequest) {
     const apiBase = process.env.NEXT_PUBLIC_MOLTBOOK_API_BASE || 'https://www.moltbook.com/api/v1';
     const apiKey = process.env.MOLTBOOK_API_KEY;
 
-    // Validate API base (security check)
-    if (!apiBase.startsWith('https://www.moltbook.com')) {
-      console.error('Invalid Moltbook API base:', apiBase);
+    // Validate API base (security check - must be exactly the official Moltbook API)
+    if (apiBase !== 'https://www.moltbook.com/api/v1') {
+      console.error('Invalid Moltbook API base (must be exactly https://www.moltbook.com/api/v1):', apiBase);
       return NextResponse.json(
         { error: 'Invalid Moltbook API configuration' },
         { status: 500 }
