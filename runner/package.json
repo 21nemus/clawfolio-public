@@ -1,0 +1,22 @@
+{
+  "name": "clawfolio-runner",
+  "version": "0.1.0",
+  "description": "Testnet indexer and dry-run execution runner for Clawfolio bots",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "index": "tsx src/cli.ts index",
+    "run": "tsx src/cli.ts run",
+    "run-all": "tsx src/cli.ts run-all",
+    "leaderboard": "tsx src/cli.ts leaderboard"
+  },
+  "dependencies": {
+    "viem": "^2.45.1",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
