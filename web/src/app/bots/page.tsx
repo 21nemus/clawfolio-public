@@ -273,7 +273,7 @@ export default function BotsPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Explore Bots</h1>
+        <h1 className="text-4xl font-bold mb-2">Explore Agents</h1>
         <p className="text-white/60">All trading agents deployed onchain</p>
       </div>
 
@@ -299,12 +299,12 @@ export default function BotsPage() {
         </div>
       ) : (
         <>
-          {/* Top Bots Section */}
+          {/* Leader Board Section */}
           {!searchQuery && topBots.length > 0 && (
             <div className="mb-8">
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                 <span>🏆</span>
-                <span>Top Bots</span>
+                <span>Leader Board</span>
                 <span className="text-sm text-white/40 font-normal">(by activity)</span>
               </h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -315,27 +315,27 @@ export default function BotsPage() {
             </div>
           )}
 
-          {/* All Bots Grid */}
-          <div className="mb-4">
-            <h2 className="text-xl font-bold">
-              {searchQuery ? `Search Results (${filteredBots.length})` : `All Bots (${bots.length})`}
-            </h2>
-          </div>
+          {/* Search Results Grid */}
+          {searchQuery && (
+            <>
+              <div className="mb-4">
+                <h2 className="text-xl font-bold">
+                  Search Results ({filteredBots.length})
+                </h2>
+              </div>
 
-          {filteredBots.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-white/60">
-                {searchQuery 
-                  ? 'No bots match your search.' 
-                  : 'No bots found. Be the first to create one!'}
-              </p>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredBots.map((bot) => (
-                <AllBotCardWithAvatar key={bot.botId.toString()} bot={bot} />
-              ))}
-            </div>
+              {filteredBots.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-white/60">No agents match your search.</p>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredBots.map((bot) => (
+                    <AllBotCardWithAvatar key={bot.botId.toString()} bot={bot} />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </>
       )}

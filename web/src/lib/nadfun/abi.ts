@@ -158,3 +158,43 @@ export const lensAbi = [
     stateMutability: 'view',
   },
 ] as const;
+
+export const tradeRouterAbi = [
+  {
+    type: 'function',
+    name: 'buy',
+    inputs: [
+      {
+        name: 'params',
+        type: 'tuple',
+        components: [
+          { name: 'amountOutMin', type: 'uint256', internalType: 'uint256' },
+          { name: 'token', type: 'address', internalType: 'address' },
+          { name: 'to', type: 'address', internalType: 'address' },
+          { name: 'deadline', type: 'uint256', internalType: 'uint256' },
+        ],
+      },
+    ],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    name: 'sell',
+    inputs: [
+      {
+        name: 'params',
+        type: 'tuple',
+        components: [
+          { name: 'amountIn', type: 'uint256', internalType: 'uint256' },
+          { name: 'amountOutMin', type: 'uint256', internalType: 'uint256' },
+          { name: 'token', type: 'address', internalType: 'address' },
+          { name: 'to', type: 'address', internalType: 'address' },
+          { name: 'deadline', type: 'uint256', internalType: 'uint256' },
+        ],
+      },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+] as const;

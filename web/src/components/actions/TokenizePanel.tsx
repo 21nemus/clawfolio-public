@@ -3,16 +3,40 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { decodeEventLog, parseEther, formatEther } from 'viem';
-import { uploadImage, uploadImageFromUrl, uploadMetadata, mineSalt, getDeployFee, getInitialBuyAmountOut, getProgress, getTokenFlags, getCurveState, getBuyQuote, getSellQuote, getAvailableBuy } from '@/lib/nadfun/client';
+import { uploadImage, uploadImageFromUrl, uploadMetadata, mineSalt, getDeployFee, getInitialBuyAmountOut, getProgress, getTokenFlags, getCurveState, getBuyQuote, getSellQuote, getAvailableBuy, getQuoteWithRouter } from '@/lib/nadfun/client';
 import { BONDING_CURVE_ROUTER } from '@/lib/nadfun/constants';
-import { bondingCurveRouterAbi, curveAbi } from '@/lib/nadfun/abi';
+import { bondingCurveRouterAbi, curveAbi, tradeRouterAbi } from '@/lib/nadfun/abi';
 import { BOT_REGISTRY_ABI } from '@/lib/abi';
+import { ERC20ABI } from '@/abi/ERC20';
 import { loadConfig } from '@/lib/config';
 import { TxLink } from '@/components/TxLink';
 import { AddressLink } from '@/components/AddressLink';
 import { CopyButton } from '@/components/CopyButton';
 
 const appConfig = loadConfig();
+
+// Helper to format numbers with thousands separators and limited decimals
+function formatUnitsDisplay(value: bigint, decimals: number, maxFrac: number): string {
+  const formatted = formatEther(value);
+  const [intPart, fracPart = ''] = formatted.split('.');
+  
+  // Add thousands separators to integer part
+  const intWithSeparators = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  
+  // Limit decimal places and trim trailing zeros
+  if (!fracPart || maxFrac === 0) {
+    return intWithSeparators;
+  }
+  
+  const limitedFrac = fracPart.slice(0, maxFrac).replace(/0+$/, '');
+  return limitedFrac ? `${intWithSeparators}.${limitedFrac}` : intWithSeparators;
+}
+
+// Helper to format progress from basis points to percentage
+function formatPercentBps(progressBps: bigint): string {
+  const percent = Number(progressBps) / 100;
+  return percent.toFixed(2);
+}
 
 // Helper to format wallet errors into friendly messages
 function formatWalletError(err: unknown): { summary: string; details?: string } {
@@ -154,6 +178,17 @@ export function TokenizePanel({
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState('');
 
+  // Trade widget state
+  const [tradeTab, setTradeTab] = useState<'buy' | 'sell'>('buy');
+  const [tradeAmount, setTradeAmount] = useState('');
+  const [slippage, setSlippage] = useState('1');
+  const [deadlineMinutes, setDeadlineMinutes] = useState('5');
+  const [tradeQuote, setTradeQuote] = useState<{ router: `0x${string}`; amountOut: bigint } | null>(null);
+  const [tradeLoading, setTradeLoading] = useState(false);
+  const [tradeError, setTradeError] = useState('');
+  const [tokenBalance, setTokenBalance] = useState<bigint | null>(null);
+  const [monBalance, setMonBalance] = useState<bigint | null>(null);
+
   // Load comprehensive token stats
   const loadTokenStats = async () => {
     if (!botToken || !publicClient) return;
@@ -201,6 +236,57 @@ export function TokenizePanel({
     setErrorDetails(formatted.details);
     setShowErrorDetails(false);
   }, []);
+
+  // Load balances for trading
+  useEffect(() => {
+    if (!botToken || !address || !publicClient) return;
+    
+    const loadBalances = async () => {
+      try {
+        const [mon, token] = await Promise.all([
+          publicClient.getBalance({ address }),
+          publicClient.readContract({
+            address: botToken,
+            abi: ERC20ABI,
+            functionName: 'balanceOf',
+            args: [address],
+          }) as Promise<bigint>,
+        ]);
+        setMonBalance(mon);
+        setTokenBalance(token);
+      } catch (err) {
+        console.error('Failed to load balances:', err);
+      }
+    };
+
+    loadBalances();
+  }, [botToken, address, publicClient]);
+
+  // Debounced quote fetching for trade
+  useEffect(() => {
+    if (!botToken || !publicClient || !tradeAmount) {
+      setTradeQuote(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const amount = parseEther(tradeAmount);
+        if (amount <= 0n) {
+          setTradeQuote(null);
+          return;
+        }
+
+        const quote = await getQuoteWithRouter(publicClient, botToken, amount, tradeTab === 'buy');
+        setTradeQuote(quote);
+      } catch (err) {
+        console.error('Failed to get quote:', err);
+        setTradeQuote(null);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [botToken, publicClient, tradeAmount, tradeTab]);
 
   const handleUseAgentAvatar = async () => {
     if (!agentAvatarUrl) return;
@@ -499,12 +585,141 @@ export function TokenizePanel({
     }
   };
 
-  // Build correct Nad.fun URL based on chainId
-  const nadfunUrl = botToken 
-    ? appConfig.chainId === 10143 
-      ? `https://testnet.nad.fun/v3/tokens/${botToken}`
-      : `https://nad.fun/tokens/${botToken}`
-    : null;
+  // Trade handlers
+  const handleBuy = async () => {
+    if (!botToken || !tradeQuote || !address || !tradeAmount) {
+      setTradeError('Missing required data');
+      return;
+    }
+
+    setTradeLoading(true);
+    setTradeError('');
+
+    try {
+      const amountIn = parseEther(tradeAmount);
+      const slippageNum = parseFloat(slippage) || 1;
+      const minOut = (tradeQuote.amountOut * BigInt(Math.floor((100 - slippageNum) * 100))) / 10000n;
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + parseInt(deadlineMinutes) * 60);
+
+      const hash = await writeContractAsync({
+        address: tradeQuote.router,
+        abi: tradeRouterAbi,
+        functionName: 'buy',
+        args: [{
+          amountOutMin: minOut,
+          token: botToken,
+          to: address,
+          deadline,
+        }],
+        value: amountIn,
+      });
+
+      // Wait for confirmation
+      await publicClient?.waitForTransactionReceipt({ hash });
+      
+      // Refresh balances
+      if (publicClient) {
+        const [mon, token] = await Promise.all([
+          publicClient.getBalance({ address }),
+          publicClient.readContract({
+            address: botToken,
+            abi: ERC20ABI,
+            functionName: 'balanceOf',
+            args: [address],
+          }) as Promise<bigint>,
+        ]);
+        setMonBalance(mon);
+        setTokenBalance(token);
+      }
+
+      setTradeAmount('');
+      setTradeQuote(null);
+    } catch (err) {
+      const formatted = formatWalletError(err);
+      setTradeError(formatted.summary);
+    } finally {
+      setTradeLoading(false);
+    }
+  };
+
+  const handleSell = async () => {
+    if (!botToken || !tradeQuote || !address || !tradeAmount || !publicClient) {
+      setTradeError('Missing required data');
+      return;
+    }
+
+    setTradeLoading(true);
+    setTradeError('');
+
+    try {
+      const amountIn = parseEther(tradeAmount);
+      const slippageNum = parseFloat(slippage) || 1;
+      const minOut = (tradeQuote.amountOut * BigInt(Math.floor((100 - slippageNum) * 100))) / 10000n;
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + parseInt(deadlineMinutes) * 60);
+
+      // Check allowance
+      const allowance = await publicClient.readContract({
+        address: botToken,
+        abi: ERC20ABI,
+        functionName: 'allowance',
+        args: [address, tradeQuote.router],
+      }) as bigint;
+
+      // Approve if needed
+      if (allowance < amountIn) {
+        const approveHash = await writeContractAsync({
+          address: botToken,
+          abi: ERC20ABI,
+          functionName: 'approve',
+          args: [tradeQuote.router, amountIn],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: approveHash });
+      }
+
+      // Execute sell
+      const hash = await writeContractAsync({
+        address: tradeQuote.router,
+        abi: tradeRouterAbi,
+        functionName: 'sell',
+        args: [{
+          amountIn,
+          amountOutMin: minOut,
+          token: botToken,
+          to: address,
+          deadline,
+        }],
+      });
+
+      // Wait for confirmation
+      await publicClient.waitForTransactionReceipt({ hash });
+      
+      // Refresh balances
+      const [mon, token] = await Promise.all([
+        publicClient.getBalance({ address }),
+        publicClient.readContract({
+          address: botToken,
+          abi: ERC20ABI,
+          functionName: 'balanceOf',
+          args: [address],
+        }) as Promise<bigint>,
+      ]);
+      setMonBalance(mon);
+      setTokenBalance(token);
+
+      setTradeAmount('');
+      setTradeQuote(null);
+    } catch (err) {
+      const formatted = formatWalletError(err);
+      setTradeError(formatted.summary);
+    } finally {
+      setTradeLoading(false);
+    }
+  };
+
+  // Build Nad.fun URLs based on chainId
+  const isTestnet = appConfig.chainId === 10143;
+  const nadfunTestnetUrl = botToken ? `https://testnet.nad.fun/v3/tokens/${botToken}` : null;
+  const nadfunMainUrl = botToken ? `https://nad.fun/tokens/${botToken}` : null;
 
   const explorerTokenUrl = botToken && appConfig.explorerAddressUrlPrefix
     ? `${appConfig.explorerAddressUrlPrefix}${botToken}`
@@ -546,12 +761,21 @@ export function TokenizePanel({
               </div>
             )}
 
-            {/* Stats */}
+            {/* Progress */}
             {tokenStats.progress !== undefined && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-white/50">Progress:</span>
-                  <span className="text-white font-mono">{tokenStats.progress.toString()}</span>
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs items-center">
+                  <span className="text-white/50">Graduation Progress:</span>
+                  <span className="text-white font-medium">{formatPercentBps(tokenStats.progress)}%</span>
+                </div>
+                <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-gradient-to-r from-red-500 to-purple-500 h-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, Math.max(0, Number(tokenStats.progress) / 100))}%` }}
+                  />
+                </div>
+                <div className="text-xs text-white/30 text-right">
+                  {tokenStats.progress.toString()} / 10,000 bps
                 </div>
               </div>
             )}
@@ -561,15 +785,15 @@ export function TokenizePanel({
                 <p className="text-xs text-white/40 font-medium mb-2">Reserves</p>
                 <div className="flex justify-between text-xs">
                   <span className="text-white/50">Real MON:</span>
-                  <span className="text-white font-mono">{formatEther(tokenStats.reserves.realMonReserve)}</span>
+                  <span className="text-white font-mono">{formatUnitsDisplay(tokenStats.reserves.realMonReserve, 18, 4)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-white/50">Real Token:</span>
-                  <span className="text-white font-mono">{formatEther(tokenStats.reserves.realTokenReserve)}</span>
+                  <span className="text-white font-mono">{formatUnitsDisplay(tokenStats.reserves.realTokenReserve, 18, 4)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-white/50">Target:</span>
-                  <span className="text-white font-mono">{formatEther(tokenStats.reserves.targetTokenAmount)}</span>
+                  <span className="text-white font-mono">{formatUnitsDisplay(tokenStats.reserves.targetTokenAmount, 18, 4)}</span>
                 </div>
               </div>
             )}
@@ -581,13 +805,13 @@ export function TokenizePanel({
                 {tokenStats.buyQuote && (
                   <div className="flex justify-between text-xs">
                     <span className="text-white/50">0.1 MON buys:</span>
-                    <span className="text-green-400 font-mono">~{formatEther(tokenStats.buyQuote)} tokens</span>
+                    <span className="text-green-400 font-mono">~{formatUnitsDisplay(tokenStats.buyQuote, 18, 4)} tokens</span>
                   </div>
                 )}
                 {tokenStats.sellQuote && (
                   <div className="flex justify-between text-xs">
                     <span className="text-white/50">100 tokens sell for:</span>
-                    <span className="text-red-400 font-mono">~{formatEther(tokenStats.sellQuote)} MON</span>
+                    <span className="text-red-400 font-mono">~{formatUnitsDisplay(tokenStats.sellQuote, 18, 4)} MON</span>
                   </div>
                 )}
               </div>
@@ -598,17 +822,146 @@ export function TokenizePanel({
                 <p className="text-xs text-white/40 font-medium mb-2">Available Buy</p>
                 <div className="flex justify-between text-xs">
                   <span className="text-white/50">Tokens:</span>
-                  <span className="text-white font-mono">{formatEther(tokenStats.availableBuy.availableBuyToken)}</span>
+                  <span className="text-white font-mono">{formatUnitsDisplay(tokenStats.availableBuy.availableBuyToken, 18, 4)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-white/50">Required MON:</span>
-                  <span className="text-white font-mono">{formatEther(tokenStats.availableBuy.requiredMonAmount)}</span>
+                  <span className="text-white font-mono">{formatUnitsDisplay(tokenStats.availableBuy.requiredMonAmount, 18, 4)}</span>
                 </div>
               </div>
             )}
 
             {statsError && (
               <p className="text-xs text-red-400">{statsError}</p>
+            )}
+
+            {/* Trade Widget */}
+            {address && !tokenStats.isLocked && (
+              <div className="bg-white/5 rounded p-4 space-y-3 border border-white/10">
+                <h4 className="text-sm font-medium text-white">Trade Token</h4>
+                
+                {/* Tabs */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setTradeTab('buy')}
+                    className={`flex-1 px-3 py-2 rounded text-sm transition-colors ${
+                      tradeTab === 'buy'
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/40'
+                        : 'bg-white/5 text-white/60 border border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    Buy
+                  </button>
+                  <button
+                    onClick={() => setTradeTab('sell')}
+                    className={`flex-1 px-3 py-2 rounded text-sm transition-colors ${
+                      tradeTab === 'sell'
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                        : 'bg-white/5 text-white/60 border border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    Sell
+                  </button>
+                </div>
+
+                {/* Balance Display */}
+                <div className="flex justify-between text-xs">
+                  <span className="text-white/50">Balance:</span>
+                  <span className="text-white font-mono">
+                    {tradeTab === 'buy' 
+                      ? monBalance !== null ? `${formatUnitsDisplay(monBalance, 18, 4)} MON` : '...'
+                      : tokenBalance !== null ? `${formatUnitsDisplay(tokenBalance, 18, 4)} tokens` : '...'}
+                  </span>
+                </div>
+
+                {/* Amount Input */}
+                <div>
+                  <label className="text-xs text-white/60 mb-1 block">
+                    Amount ({tradeTab === 'buy' ? 'MON' : 'Tokens'})
+                  </label>
+                  <input
+                    type="text"
+                    value={tradeAmount}
+                    onChange={(e) => setTradeAmount(e.target.value)}
+                    placeholder="0.0"
+                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-400/50"
+                  />
+                </div>
+
+                {/* Slippage & Deadline */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-white/60 mb-1 block">Slippage %</label>
+                    <input
+                      type="text"
+                      value={slippage}
+                      onChange={(e) => setSlippage(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-red-400/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-white/60 mb-1 block">Deadline (min)</label>
+                    <input
+                      type="text"
+                      value={deadlineMinutes}
+                      onChange={(e) => setDeadlineMinutes(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-red-400/50"
+                    />
+                  </div>
+                </div>
+
+                {/* Quote Display */}
+                {tradeQuote && tradeAmount && (
+                  <div className="bg-black/20 rounded p-2 space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Router:</span>
+                      <span className="text-white/70 font-mono">
+                        {tradeQuote.router.slice(0, 6)}...{tradeQuote.router.slice(-4)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Expected:</span>
+                      <span className="text-white font-mono">
+                        ~{formatUnitsDisplay(tradeQuote.amountOut, 18, 4)} {tradeTab === 'buy' ? 'tokens' : 'MON'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/50">Min received:</span>
+                      <span className="text-white font-mono">
+                        {formatUnitsDisplay(
+                          (tradeQuote.amountOut * BigInt(Math.floor((100 - parseFloat(slippage || '1')) * 100))) / 10000n,
+                          18,
+                          4
+                        )} {tradeTab === 'buy' ? 'tokens' : 'MON'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Trade Error */}
+                {tradeError && (
+                  <p className="text-xs text-red-400">{tradeError}</p>
+                )}
+
+                {/* Trade Button */}
+                <button
+                  onClick={tradeTab === 'buy' ? handleBuy : handleSell}
+                  disabled={tradeLoading || !tradeAmount || !tradeQuote}
+                  className={`w-full px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    tradeTab === 'buy'
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
+                      : 'bg-red-500 hover:bg-red-600 text-white'
+                  }`}
+                >
+                  {tradeLoading ? 'Processing...' : tradeTab === 'buy' ? 'Buy Tokens' : 'Sell Tokens'}
+                </button>
+              </div>
+            )}
+
+            {tokenStats.isLocked && (
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded p-3">
+                <p className="text-xs text-yellow-400">Trading is locked. Token is awaiting graduation to DEX.</p>
+              </div>
             )}
 
             {/* Actions */}
@@ -621,9 +974,36 @@ export function TokenizePanel({
                 {statsLoading ? 'Loading Stats...' : 'Refresh Stats'}
               </button>
 
-              {nadfunUrl && (
+              {/* Nad.fun Links */}
+              {isTestnet && nadfunTestnetUrl && (
+                <>
+                  <a
+                    href={nadfunTestnetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-300 text-sm px-4 py-2 rounded transition-colors font-medium"
+                  >
+                    Open on Nad.fun (Testnet UI)
+                    <span className="text-purple-400">↗</span>
+                  </a>
+                  <p className="text-xs text-white/30 px-2">
+                    If testnet UI doesn&apos;t load, your DNS may block testnet.nad.fun.
+                  </p>
+                  <a
+                    href={nadfunMainUrl!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-300 text-sm px-4 py-2 rounded transition-colors font-medium"
+                  >
+                    Open on Nad.fun (Main UI)
+                    <span className="text-purple-400">↗</span>
+                  </a>
+                </>
+              )}
+
+              {!isTestnet && nadfunMainUrl && (
                 <a
-                  href={nadfunUrl}
+                  href={nadfunMainUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-300 text-sm px-4 py-2 rounded transition-colors font-medium"

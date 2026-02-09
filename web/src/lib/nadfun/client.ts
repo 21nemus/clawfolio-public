@@ -266,3 +266,25 @@ export async function getAvailableBuy(
     requiredMonAmount: result[1],
   };
 }
+
+/**
+ * Get quote with router selection (for trading)
+ */
+export async function getQuoteWithRouter(
+  publicClient: PublicClient,
+  token: `0x${string}`,
+  amountIn: bigint,
+  isBuy: boolean
+): Promise<{ router: `0x${string}`; amountOut: bigint }> {
+  const result = await publicClient.readContract({
+    address: LENS,
+    abi: lensAbi,
+    functionName: 'getAmountOut',
+    args: [token, amountIn, isBuy],
+  });
+  
+  return {
+    router: result[0],
+    amountOut: result[1],
+  };
+}
