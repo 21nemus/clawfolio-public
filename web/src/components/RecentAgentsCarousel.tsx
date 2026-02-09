@@ -29,7 +29,11 @@ export function RecentAgentsCarousel() {
 
     const fetchRecentAgents = async () => {
       try {
-        if (!publicClient || !config.botRegistry) return;
+        if (!publicClient || !config.botRegistry) {
+          setAgents([]);
+          setLoading(false);
+          return;
+        }
 
         const botCount = await publicClient.readContract({
           address: config.botRegistry,
@@ -53,7 +57,7 @@ export function RecentAgentsCarousel() {
 
           const batchIds: bigint[] = [];
           for (let j = 0; j < BATCH_SIZE && i + j < maxAttempts; j++) {
-            const botId = botCount - BigInt(i + j);
+            const botId = botCount - BigInt(i + j) - 1n; // Fix off-by-one: newest ID is botCount - 1
             if (botId > 0n) {
               batchIds.push(botId);
             }
@@ -69,9 +73,40 @@ export function RecentAgentsCarousel() {
               { address: config.botRegistry, abi: BOT_REGISTRY_ABI, functionName: 'botTokenOf', args: [botId] },
             ]);
 
-            const multicallResults = await publicClient.multicall({
-              contracts: multicallContracts as any[],
-            });
+            let multicallResults;
+            try {
+              multicallResults = await publicClient.multicall({
+                contracts: multicallContracts as any[],
+              });
+            } catch (multicallError) {
+              // Fallback to individual reads if multicall fails
+              console.warn('Multicall failed, falling back to individual reads:', multicallError);
+              if (!config.botRegistry) {
+                continue;
+              }
+              multicallResults = await Promise.all(
+                batchIds.flatMap(botId => [
+                  publicClient.readContract({
+                    address: config.botRegistry!,
+                    abi: BOT_REGISTRY_ABI,
+                    functionName: 'botAccountOf',
+                    args: [botId],
+                  }).then(result => ({ result })),
+                  publicClient.readContract({
+                    address: config.botRegistry!,
+                    abi: BOT_REGISTRY_ABI,
+                    functionName: 'metadataURI',
+                    args: [botId],
+                  }).then(result => ({ result })),
+                  publicClient.readContract({
+                    address: config.botRegistry!,
+                    abi: BOT_REGISTRY_ABI,
+                    functionName: 'botTokenOf',
+                    args: [botId],
+                  }).then(result => ({ result })),
+                ])
+              );
+            }
 
             // Process each bot in the batch
             for (let idx = 0; idx < batchIds.length; idx++) {
@@ -151,8 +186,26 @@ export function RecentAgentsCarousel() {
     };
   }, [config.botRegistry]);
 
-  if (loading || agents.length === 0) {
-    return null;
+  if (loading) {
+    return (
+      <div className="relative w-full py-12 overflow-hidden">
+        <h2 className="text-3xl font-bold text-center mb-4">Recently Created Agents</h2>
+        <div className="text-center py-8">
+          <p className="text-white/60 text-sm">Loading recent agents...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (agents.length === 0) {
+    return (
+      <div className="relative w-full py-12 overflow-hidden">
+        <h2 className="text-3xl font-bold text-center mb-4">Recently Created Agents</h2>
+        <div className="text-center py-8">
+          <p className="text-white/60 text-sm">No recent agents with images yet.</p>
+        </div>
+      </div>
+    );
   }
 
   // Ensure track is long enough to avoid blank gaps

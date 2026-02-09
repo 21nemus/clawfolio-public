@@ -552,12 +552,14 @@ export default function BotDetailPage() {
             {/* Right Column: Secondary Content */}
             <div className="space-y-5">
               {/* Tokenization - SECONDARY */}
-              <TokenizePanel 
-                botId={bot.botId} 
-                botToken={botToken || undefined} 
-                isCreator={!!isCreator}
-                botMetadata={metadata}
-              />
+              <div id="token">
+                <TokenizePanel 
+                  botId={bot.botId} 
+                  botToken={botToken || undefined} 
+                  isCreator={!!isCreator}
+                  botMetadata={metadata}
+                />
+              </div>
 
               {/* Creator Actions - SECONDARY */}
               {isCreator && (

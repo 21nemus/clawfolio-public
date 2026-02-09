@@ -381,18 +381,12 @@ export default function TokensPage() {
                 >
                   View Agent
                 </Link>
-                <a
-                  href={
-                    appConfig.explorerAddressUrlPrefix
-                      ? `${appConfig.explorerAddressUrlPrefix}${token.tokenAddress}`
-                      : `https://monadvision.com/address/${token.tokenAddress}`
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href={`/agents/${token.botId}#token`}
                   className="flex-1 text-center px-3 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded text-xs text-red-400 transition-colors"
                 >
-                  Explorer →
-                </a>
+                  Buy
+                </Link>
               </div>
             </div>
           </div>
