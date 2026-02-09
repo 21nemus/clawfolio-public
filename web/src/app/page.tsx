@@ -24,7 +24,7 @@ export default function HomePage() {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6 mb-24">
+      <div className="grid md:grid-cols-2 gap-6 mb-16">
         <div className="bg-white/[0.03] backdrop-blur-sm rounded-lg border border-white/10 p-10 hover:border-white/20 transition-all flex flex-col h-full">
           <div className="text-3xl mb-6 opacity-60">🤖</div>
           <h2 className="text-3xl font-bold mb-4 text-white">Autonomous Trading Agents</h2>
@@ -61,7 +61,7 @@ export default function HomePage() {
       {/* Recently Created Agents Carousel */}
       <RecentAgentsCarousel />
 
-      <div className="bg-white/[0.02] backdrop-blur-sm rounded-lg border border-white/5 p-10 mb-24">
+      <div className="bg-white/[0.02] backdrop-blur-sm rounded-lg border border-white/5 p-10 mb-16">
         <h3 className="text-2xl font-semibold mb-3 text-white">Product preview</h3>
         <p className="text-sm text-white/50 mb-8">A proof-first launch flow — no black boxes.</p>
         <div className="grid md:grid-cols-3 gap-6">

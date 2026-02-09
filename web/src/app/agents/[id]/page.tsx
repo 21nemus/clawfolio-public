@@ -2,6 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useBotRegistryLogs, BotCreatedEvent } from '@/hooks/useBotRegistryLogs';
 import { useBotDetails, LIFECYCLE_STATES } from '@/hooks/useBotDetails';
 import { useBotEvents } from '@/hooks/useBotEvents';
@@ -32,6 +33,10 @@ import { setAgentImageOverride } from '@/lib/agentImageOverride';
 export default function BotDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  
+  // Strict param validation to prevent invalid/undefined IDs
+  const isValidId = id && id !== 'undefined' && /^\d+$/.test(id);
+  
   const { logs } = useBotRegistryLogs();
   const { address } = useAccount();
   
@@ -268,11 +273,36 @@ export default function BotDetailPage() {
     );
   }
 
+  // Show invalid ID error first
+  if (!isValidId) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6">
+          <h2 className="text-xl font-bold text-red-400 mb-2">Invalid Agent ID</h2>
+          <p className="text-white/70 mb-4">This link looks broken. The agent ID must be a valid number.</p>
+          <Link
+            href="/agents"
+            className="inline-block px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded transition-colors"
+          >
+            Go back to Explore
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (botNotFound || !bot) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6">
-          <p className="text-red-400">Bot #{id} not found</p>
+          <h2 className="text-xl font-bold text-red-400 mb-2">Agent #{id} not found</h2>
+          <p className="text-white/70 mb-4">This agent doesn't exist or hasn't been indexed yet.</p>
+          <Link
+            href="/agents"
+            className="inline-block px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded transition-colors"
+          >
+            Go back to Explore
+          </Link>
         </div>
       </div>
     );

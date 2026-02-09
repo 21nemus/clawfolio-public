@@ -35,7 +35,7 @@ function TopBotCardWithAvatar({ bot, idx }: { bot: TopBot; idx: number }) {
   });
 
   return (
-    <Link href={`/bots/${bot.botId}`}>
+    <Link href={`/agents/${bot.botId}`}>
       <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 hover:border-red-400/50 transition-all cursor-pointer relative">
         <div className="absolute top-2 right-2 flex items-center gap-1">
           {idx === 0 && <span className="text-xl">🥇</span>}
@@ -111,7 +111,7 @@ function AllBotCardWithAvatar({ bot }: { bot: BotWithMetadata }) {
   });
 
   return (
-    <Link href={`/bots/${bot.botId}`}>
+    <Link href={`/agents/${bot.botId}`}>
       <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:border-red-400/50 transition-all cursor-pointer">
         <div className="flex items-start gap-4 mb-4">
           {avatarUrl ? (

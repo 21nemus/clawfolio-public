@@ -44,79 +44,91 @@ export function RecentAgentsCarousel() {
 
         const recentAgents: RecentAgent[] = [];
         const targetCount = 8;
-        const maxAttempts = 20; // Check up to 20 recent bots
+        const maxAttempts = 200; // Check up to 200 recent bots for better coverage
+        const BATCH_SIZE = 10; // Multicall batch size
 
-        // Start from the newest bot and work backwards
-        for (let i = 0; i < maxAttempts && recentAgents.length < targetCount; i++) {
+        // Start from the newest bot and work backwards, using multicall for efficiency
+        for (let i = 0; i < maxAttempts && recentAgents.length < targetCount; i += BATCH_SIZE) {
           if (cancelled) break;
 
-          const botId = botCount - BigInt(i);
-          if (botId <= 0n) break;
+          const batchIds: bigint[] = [];
+          for (let j = 0; j < BATCH_SIZE && i + j < maxAttempts; j++) {
+            const botId = botCount - BigInt(i + j);
+            if (botId > 0n) {
+              batchIds.push(botId);
+            }
+          }
+
+          if (batchIds.length === 0) break;
 
           try {
-            const [botAccount, metadataURI, tokenAddress] = await Promise.all([
-              publicClient.readContract({
-                address: config.botRegistry,
-                abi: BOT_REGISTRY_ABI,
-                functionName: 'botAccountOf',
-                args: [botId],
-              }) as Promise<`0x${string}`>,
-              publicClient.readContract({
-                address: config.botRegistry,
-                abi: BOT_REGISTRY_ABI,
-                functionName: 'metadataURI',
-                args: [botId],
-              }) as Promise<string>,
-              publicClient.readContract({
-                address: config.botRegistry,
-                abi: BOT_REGISTRY_ABI,
-                functionName: 'botTokenOf',
-                args: [botId],
-              }) as Promise<`0x${string}`>,
+            // Use multicall for better RPC efficiency
+            const multicallContracts = batchIds.flatMap(botId => [
+              { address: config.botRegistry, abi: BOT_REGISTRY_ABI, functionName: 'botAccountOf', args: [botId] },
+              { address: config.botRegistry, abi: BOT_REGISTRY_ABI, functionName: 'metadataURI', args: [botId] },
+              { address: config.botRegistry, abi: BOT_REGISTRY_ABI, functionName: 'botTokenOf', args: [botId] },
             ]);
 
-            if (botAccount === '0x0000000000000000000000000000000000000000') {
-              continue;
-            }
+            const multicallResults = await publicClient.multicall({
+              contracts: multicallContracts as any[],
+            });
 
-            const metadata = decodeMetadataURI(metadataURI);
-            const image = metadata?.image as string | undefined;
+            // Process each bot in the batch
+            for (let idx = 0; idx < batchIds.length; idx++) {
+              if (cancelled || recentAgents.length >= targetCount) break;
 
-            // Only include agents with images
-            if (!image) continue;
+              const botId = batchIds[idx];
+              const baseIdx = idx * 3;
+              const botAccount = multicallResults[baseIdx].result as `0x${string}`;
+              const metadataURI = multicallResults[baseIdx + 1].result as string;
+              const tokenAddress = multicallResults[baseIdx + 2].result as `0x${string}`;
 
-            const hasToken = tokenAddress !== '0x0000000000000000000000000000000000000000';
-            let tokenSymbol: string | undefined;
-            let marketCapMon: bigint | undefined;
+              if (botAccount === '0x0000000000000000000000000000000000000000') {
+                continue;
+              }
 
-            if (hasToken) {
-              try {
-                const [symbol, mcap] = await Promise.all([
-                  publicClient.readContract({
-                    address: tokenAddress,
-                    abi: ERC20ABI,
-                    functionName: 'symbol',
-                  }) as Promise<string>,
-                  getMarketCapMon(publicClient, tokenAddress).catch(() => null),
-                ]);
-                tokenSymbol = symbol;
-                marketCapMon = mcap?.marketCapMon;
-              } catch {
-                // Ignore token metadata errors
+              const metadata = decodeMetadataURI(metadataURI);
+              const image = metadata?.image as string | undefined;
+
+              // Only include agents with images
+              if (!image) continue;
+
+              const hasToken = tokenAddress !== '0x0000000000000000000000000000000000000000';
+              let tokenSymbol: string | undefined;
+              let marketCapMon: bigint | undefined;
+
+              if (hasToken) {
+                try {
+                  const [symbol, mcap] = await Promise.all([
+                    publicClient.readContract({
+                      address: tokenAddress,
+                      abi: ERC20ABI,
+                      functionName: 'symbol',
+                    }) as Promise<string>,
+                    getMarketCapMon(publicClient, tokenAddress).catch(() => null),
+                  ]);
+                  tokenSymbol = symbol;
+                  marketCapMon = mcap?.marketCapMon;
+                } catch {
+                  // Ignore token metadata errors
+                }
+              }
+
+              // Only include agents with valid bigint IDs
+              if (typeof botId === 'bigint') {
+                recentAgents.push({
+                  botId,
+                  name: (metadata?.name as string) || `Agent #${botId}`,
+                  handle: metadata?.handle as string | undefined,
+                  image,
+                  tokenAddress: hasToken ? tokenAddress : undefined,
+                  tokenSymbol,
+                  marketCapMon,
+                });
               }
             }
-
-            recentAgents.push({
-              botId,
-              name: (metadata?.name as string) || `Agent #${botId}`,
-              handle: metadata?.handle as string | undefined,
-              image,
-              tokenAddress: hasToken ? tokenAddress : undefined,
-              tokenSymbol,
-              marketCapMon,
-            });
           } catch (err) {
-            console.error(`Failed to fetch bot ${botId}:`, err);
+            console.error(`Failed to fetch batch starting at ${batchIds[0]}:`, err);
           }
         }
 
@@ -143,26 +155,34 @@ export function RecentAgentsCarousel() {
     return null;
   }
 
-  // Duplicate agents for seamless loop
-  const duplicatedAgents = [...agents, ...agents];
+  // Ensure track is long enough to avoid blank gaps
+  const MIN_TRACK_ITEMS = 16;
+  const repeats = Math.max(1, Math.ceil(MIN_TRACK_ITEMS / agents.length));
+  const baseTrack = Array.from({ length: repeats }, () => agents).flat();
+  
+  // Duplicate for seamless loop (need 2x for the translateX(-50%) animation)
+  const duplicatedAgents = [...baseTrack, ...baseTrack];
+  
+  // For single agent, render static to avoid weird animation
+  const shouldAnimate = agents.length > 1;
 
   return (
-    <div className="relative w-full py-20 overflow-hidden">
-      <h2 className="text-3xl font-bold text-center mb-8">Recently Created Agents</h2>
+    <div className="relative w-full py-12 overflow-hidden">
+      <h2 className="text-3xl font-bold text-center mb-4">Recently Created Agents</h2>
       
       {/* Ticker container */}
       <div className="relative w-full overflow-hidden bg-white/5 border-y border-white/10 py-4">
         <div 
           className="flex gap-6"
           style={{
-            animation: 'scroll-left 40s linear infinite',
+            animation: shouldAnimate ? 'scroll-left 40s linear infinite' : 'none',
             width: 'max-content',
           }}
         >
           {duplicatedAgents.map((agent, idx) => (
             <Link
               key={`${agent.botId.toString()}-${idx}`}
-              href={`/agents/${agent.botId}`}
+              href={`/agents/${agent.botId.toString()}`}
               className="flex-shrink-0"
             >
               <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 hover:border-red-400/50 hover:scale-105 transition-all w-64">
