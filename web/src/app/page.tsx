@@ -140,7 +140,7 @@ export default function HomePage() {
                   Create
                 </Link>
                 <Link href="/my" className="block text-sm text-white/60 hover:text-white hover:underline underline-offset-4 transition-colors">
-                  My Bots
+                  My Trading Agents
                 </Link>
                 <Link href="/tokens" className="block text-sm text-white/60 hover:text-white hover:underline underline-offset-4 transition-colors">
                   Tokens

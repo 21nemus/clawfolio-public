@@ -13,16 +13,20 @@ import { AddressLink } from '@/components/AddressLink';
 
 const RISK_PRESETS = {
   conservative: {
-    maxAmountInPerTrade: parseEther('10'),
-    minSecondsBetweenTrades: 300n, // 5 min
+    maxAmountInPerTrade: parseEther('0.5'), // 0.5 MON - safe for testnet
+    minSecondsBetweenTrades: 600n, // 10 min
   },
   balanced: {
-    maxAmountInPerTrade: parseEther('100'),
-    minSecondsBetweenTrades: 120n, // 2 min
+    maxAmountInPerTrade: parseEther('1'), // 1 MON - testnet default
+    minSecondsBetweenTrades: 300n, // 5 min
   },
   aggressive: {
-    maxAmountInPerTrade: parseEther('1000'),
-    minSecondsBetweenTrades: 60n, // 1 min
+    maxAmountInPerTrade: parseEther('2'), // 2 MON - max for testnet
+    minSecondsBetweenTrades: 120n, // 2 min
+  },
+  custom: {
+    maxAmountInPerTrade: parseEther('1'), // placeholder, will be overridden
+    minSecondsBetweenTrades: 300n, // placeholder, will be overridden
   },
 };
 
@@ -39,6 +43,9 @@ export default function CreatePage() {
   const [imageUploading, setImageUploading] = useState(false);
   const [operator, setOperator] = useState('');
   const [riskPreset, setRiskPreset] = useState<keyof typeof RISK_PRESETS>('balanced');
+  const [customMaxMon, setCustomMaxMon] = useState('1');
+  const [customCooldownSeconds, setCustomCooldownSeconds] = useState('300');
+  const [customRiskError, setCustomRiskError] = useState<string | null>(null);
   const [pathTokenA, setPathTokenA] = useState('MON');
   const [pathTokenB, setPathTokenB] = useState('USDC');
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
@@ -113,7 +120,29 @@ export default function CreatePage() {
 
     const metadataURI = encodeMetadataURI(metadata);
     const operatorAddress = (operator || address) as `0x${string}`;
-    const riskParams = RISK_PRESETS[riskPreset];
+    
+    // Build risk params based on preset or custom
+    let riskParams;
+    if (riskPreset === 'custom') {
+      try {
+        const maxAmount = parseEther(customMaxMon);
+        const cooldown = BigInt(customCooldownSeconds);
+        if (cooldown < 0n) {
+          setCustomRiskError('Cooldown must be a positive number');
+          return;
+        }
+        riskParams = {
+          maxAmountInPerTrade: maxAmount,
+          minSecondsBetweenTrades: cooldown,
+        };
+        setCustomRiskError(null);
+      } catch (err) {
+        setCustomRiskError('Invalid risk parameters. Check your numbers.');
+        return;
+      }
+    } else {
+      riskParams = RISK_PRESETS[riskPreset];
+    }
     
     const allowedPaths: `0x${string}`[][] = [];
     if (pathTokenA && pathTokenB) {
@@ -184,9 +213,39 @@ export default function CreatePage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Bot Created! 🎉</h1>
+          <h1 className="text-4xl font-bold mb-2">Agent Created! 🎉</h1>
           <p className="text-white/60">Your trading agent has been deployed onchain.</p>
         </div>
+
+        {/* Agent Preview Card */}
+        {(name || imageUrl) && (
+          <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4 text-white">Agent Preview</h2>
+            <div className="flex items-start gap-5">
+              {imageUrl && (
+                <img
+                  src={imageUrl}
+                  alt={name || `Agent ${createdBotId}`}
+                  className="w-24 h-24 object-cover rounded-lg border border-white/20 flex-shrink-0"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <h3 className="text-2xl font-bold text-white mb-1">
+                  {name || `Agent #${createdBotId.toString()}`}
+                </h3>
+                {handle && (
+                  <p className="text-sm text-white/60 font-mono mb-2">{handle}</p>
+                )}
+                {description && (
+                  <p className="text-sm text-white/70 leading-relaxed">{description}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <ProofPanel
           title="Creation Proof"
@@ -202,7 +261,7 @@ export default function CreatePage() {
             href={`/bots/${createdBotId}`}
             className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors"
           >
-            View Bot →
+            View Agent →
           </a>
           <button
             onClick={() => {
@@ -214,6 +273,11 @@ export default function CreatePage() {
               setImageUrl('');
               setImageFile(null);
               setHandle('');
+              setOperator('');
+              setRiskPreset('balanced');
+              setCustomMaxMon('1');
+              setCustomCooldownSeconds('300');
+              setCustomRiskError(null);
               setPathTokenA('MON');
               setPathTokenB('USDC');
               setAdvancedExpanded(false);
@@ -327,28 +391,18 @@ export default function CreatePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2">Operator Address</label>
-          <input
-            type="text"
-            value={operator}
-            onChange={(e) => setOperator(e.target.value)}
-            placeholder={address || '0x...'}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 font-mono text-sm"
-          />
-          <p className="text-xs text-white/40 mt-1">Defaults to your connected wallet</p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">Risk Preset</label>
+          <label className="block text-sm font-medium mb-2">Risk Management</label>
           <select
             value={riskPreset}
             onChange={(e) => setRiskPreset(e.target.value as keyof typeof RISK_PRESETS)}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-400/50"
           >
-            <option value="conservative">Conservative (10 MON max, 5min cooldown)</option>
-            <option value="balanced">Balanced (100 MON max, 2min cooldown)</option>
-            <option value="aggressive">Aggressive (1000 MON max, 1min cooldown)</option>
+            <option value="conservative">Conservative (0.5 MON max, 10min cooldown)</option>
+            <option value="balanced">Balanced (1 MON max, 5min cooldown) - Recommended</option>
+            <option value="aggressive">Aggressive (2 MON max, 2min cooldown)</option>
+            <option value="custom">Custom (configure in Advanced)</option>
           </select>
+          <p className="text-xs text-white/40 mt-1">Testnet-safe defaults. Faucet limits apply.</p>
         </div>
 
         <div>
@@ -379,9 +433,64 @@ export default function CreatePage() {
           )}
           
           {advancedExpanded && (
-            <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-4">
+            <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-6">
+              {/* Operator Address */}
               <div>
-                <label className="block text-xs text-white/60 mb-2">Allowed Trading Path</label>
+                <label className="block text-sm font-medium text-white mb-2">Operator Address</label>
+                <input
+                  type="text"
+                  value={operator}
+                  onChange={(e) => setOperator(e.target.value)}
+                  placeholder={address || '0x...'}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 font-mono text-sm"
+                />
+                <p className="text-xs text-white/40 mt-1">
+                  Defaults to your connected wallet. Only change if delegating execution to another address (e.g., separate runner wallet).
+                </p>
+              </div>
+
+              {/* Custom Risk Parameters */}
+              {riskPreset === 'custom' && (
+                <div>
+                  <label className="block text-sm font-medium text-white mb-3">Custom Risk Parameters</label>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-white/60 mb-1">Max Amount Per Trade (MON)</label>
+                      <input
+                        type="text"
+                        value={customMaxMon}
+                        onChange={(e) => {
+                          setCustomMaxMon(e.target.value);
+                          setCustomRiskError(null);
+                        }}
+                        placeholder="1"
+                        className={`w-full bg-white/5 border ${customRiskError ? 'border-red-500/50' : 'border-white/10'} rounded-lg px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 text-sm`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-white/60 mb-1">Cooldown Between Trades (seconds)</label>
+                      <input
+                        type="text"
+                        value={customCooldownSeconds}
+                        onChange={(e) => {
+                          setCustomCooldownSeconds(e.target.value);
+                          setCustomRiskError(null);
+                        }}
+                        placeholder="300"
+                        className={`w-full bg-white/5 border ${customRiskError ? 'border-red-500/50' : 'border-white/10'} rounded-lg px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 text-sm`}
+                      />
+                      <p className="text-xs text-white/40 mt-1">300 seconds = 5 minutes</p>
+                    </div>
+                    {customRiskError && (
+                      <p className="text-xs text-red-400">{customRiskError}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Allowed Trading Path */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Allowed Trading Path</label>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <input
