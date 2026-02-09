@@ -60,6 +60,8 @@ export default function CreatePage() {
   const [handle, setHandle] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string>('');
+  const [imageError, setImageError] = useState<string>('');
   const [imageUploading, setImageUploading] = useState(false);
   const [operator, setOperator] = useState('');
   const [riskPreset, setRiskPreset] = useState<keyof typeof RISK_PRESETS>('balanced');
@@ -83,6 +85,7 @@ export default function CreatePage() {
     
     try {
       setImageUploading(true);
+      setImageError('');
       const result = await uploadImage(imageFile);
       
       // Robust handling of different response shapes
@@ -94,13 +97,50 @@ export default function CreatePage() {
       
       setImageUrl(imageUri);
       setImageFile(null);
+      setLocalPreviewUrl('');
     } catch (err) {
       console.error('Image upload error:', err);
-      alert('Image upload failed. Try pasting a URL instead.');
-      // Don't clear the file on error so user can retry
+      setImageError(err instanceof Error ? err.message : 'Image upload failed. Try pasting a URL instead.');
     } finally {
       setImageUploading(false);
     }
+  };
+
+  const handleFileSelect = (file: File) => {
+    // Revoke old preview URL
+    if (localPreviewUrl) {
+      URL.revokeObjectURL(localPreviewUrl);
+    }
+
+    setImageError('');
+
+    // Check for HEIC/HEIF
+    const fileName = file.name.toLowerCase();
+    if (
+      fileName.endsWith('.heic') ||
+      fileName.endsWith('.heif') ||
+      file.type === 'image/heic' ||
+      file.type === 'image/heif'
+    ) {
+      setImageError("HEIC isn't supported. Please convert to JPG/PNG or paste an image URL.");
+      setImageFile(null);
+      setLocalPreviewUrl('');
+      return;
+    }
+
+    // Check file size (6MB limit)
+    if (file.size > 6 * 1024 * 1024) {
+      setImageError('Image too large for upload—try a smaller file or paste a URL.');
+      setImageFile(null);
+      setLocalPreviewUrl('');
+      return;
+    }
+
+    // Create local preview
+    const previewUrl = URL.createObjectURL(file);
+    setLocalPreviewUrl(previewUrl);
+    setImageFile(file);
+    setImageUrl('');
   };
 
   const handleCreate = async () => {
@@ -207,6 +247,15 @@ export default function CreatePage() {
       console.error('Failed to create bot:', err);
     }
   };
+
+  // Cleanup preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrl) {
+        URL.revokeObjectURL(localPreviewUrl);
+      }
+    };
+  }, [localPreviewUrl]);
 
   // Parse receipt logs when transaction succeeds
   useEffect(() => {
@@ -412,8 +461,7 @@ export default function CreatePage() {
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    setImageFile(file);
-                    setImageUrl('');
+                    handleFileSelect(file);
                   }
                 }}
                 className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:bg-red-500 file:text-white file:cursor-pointer hover:file:bg-red-600"
@@ -421,12 +469,19 @@ export default function CreatePage() {
               <button
                 type="button"
                 onClick={handleImageUpload}
-                disabled={!imageFile || imageUploading}
+                disabled={!imageFile || imageUploading || !!imageError}
                 className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:bg-white/10 disabled:text-white/40 text-white rounded-lg text-sm transition-colors"
               >
                 {imageUploading ? 'Uploading...' : 'Upload'}
               </button>
             </div>
+            
+            {imageError && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded p-2">
+                <p className="text-xs text-red-400">{imageError}</p>
+              </div>
+            )}
+            
             <div className="text-xs text-white/40">Or paste image URL:</div>
             <input
               type="text"
@@ -434,13 +489,28 @@ export default function CreatePage() {
               onChange={(e) => {
                 setImageUrl(e.target.value);
                 setImageFile(null);
+                if (localPreviewUrl) {
+                  URL.revokeObjectURL(localPreviewUrl);
+                  setLocalPreviewUrl('');
+                }
+                setImageError('');
               }}
               placeholder="https://..."
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 text-sm"
             />
-            {imageUrl && (
+            {(localPreviewUrl || imageUrl) && (
               <div className="mt-2">
-                <img src={imageUrl} alt="Agent preview" className="w-24 h-24 object-cover rounded-lg border border-white/10" />
+                <img 
+                  src={localPreviewUrl || imageUrl} 
+                  alt="Agent preview" 
+                  className="w-24 h-24 object-cover rounded-lg border border-white/10" 
+                  onError={(e) => {
+                    if (!localPreviewUrl) {
+                      // Only hide if it's a URL preview (not local)
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }
+                  }}
+                />
               </div>
             )}
           </div>

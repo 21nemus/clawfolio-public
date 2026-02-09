@@ -53,7 +53,7 @@ function TopBotCardWithAvatar({ bot, idx }: { bot: TopBot; idx: number }) {
             <img 
               src={avatarUrl} 
               alt={bot.name || `Bot ${bot.botId}`}
-              className="w-12 h-12 object-cover rounded-lg border border-white/10"
+              className="w-16 h-16 object-cover rounded-lg border border-white/10"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
@@ -115,7 +115,7 @@ function AllBotCardWithAvatar({ bot }: { bot: BotWithMetadata }) {
             <img 
               src={avatarUrl} 
               alt={bot.name || `Bot ${bot.botId}`}
-              className="w-16 h-16 object-cover rounded-lg border border-white/10 flex-shrink-0"
+              className="w-20 h-20 object-cover rounded-lg border border-white/10 flex-shrink-0"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}
@@ -153,10 +153,14 @@ function AllBotCardWithAvatar({ bot }: { bot: BotWithMetadata }) {
 export default function BotsPage() {
   const { bots, loading, error } = useAllBots();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
   const [topBots, setTopBots] = useState<TopBot[]>([]);
 
-  // Filter bots based on search
+  // Filter bots based on search and archive status
   const filteredBots = bots.filter((bot) => {
+    // Filter archived unless explicitly enabled
+    if (!showArchived && bot.lifecycleState === 4) return false;
+    
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     // Normalize handle search: remove @ if query starts with @
@@ -277,7 +281,7 @@ export default function BotsPage() {
         <p className="text-white/60">All trading agents deployed onchain</p>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 space-y-3">
         <input
           type="text"
           placeholder="Search by bot ID, name, handle, or address..."
@@ -285,6 +289,15 @@ export default function BotsPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
         />
+        <label className="flex items-center gap-2 text-sm text-white/60 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="w-4 h-4 rounded border-white/20 bg-white/5 checked:bg-red-500"
+          />
+          Show archived agents
+        </label>
       </div>
 
       {error && (

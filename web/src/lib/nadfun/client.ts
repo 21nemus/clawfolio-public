@@ -288,3 +288,62 @@ export async function getQuoteWithRouter(
     amountOut: result[1],
   };
 }
+
+/**
+ * Compute market cap in MON for a token
+ * Market cap = totalSupply * (MON per 1 token via sell quote)
+ */
+export async function getMarketCapMon(
+  publicClient: PublicClient,
+  token: `0x${string}`
+): Promise<{
+  marketCapMon: bigint;
+  pricePerTokenMon: bigint;
+  totalSupply: bigint;
+  decimals: number;
+}> {
+  const ERC20ABI = [
+    {
+      type: 'function',
+      name: 'totalSupply',
+      stateMutability: 'view',
+      inputs: [],
+      outputs: [{ name: '', type: 'uint256' }],
+    },
+    {
+      type: 'function',
+      name: 'decimals',
+      stateMutability: 'view',
+      inputs: [],
+      outputs: [{ name: '', type: 'uint8' }],
+    },
+  ] as const;
+
+  // Fetch token metadata
+  const [totalSupply, decimals] = await Promise.all([
+    publicClient.readContract({
+      address: token,
+      abi: ERC20ABI,
+      functionName: 'totalSupply',
+    }) as Promise<bigint>,
+    publicClient.readContract({
+      address: token,
+      abi: ERC20ABI,
+      functionName: 'decimals',
+    }) as Promise<number>,
+  ]);
+
+  // Get price: 1 token → MON (sell quote)
+  const oneToken = BigInt(10 ** decimals);
+  const pricePerTokenMon = await getSellQuote(publicClient, token, oneToken);
+
+  // Market cap = totalSupply * pricePerToken / 10^decimals
+  const marketCapMon = (totalSupply * pricePerTokenMon) / oneToken;
+
+  return {
+    marketCapMon,
+    pricePerTokenMon,
+    totalSupply,
+    decimals,
+  };
+}

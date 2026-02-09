@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { decodeEventLog, parseEther, formatEther } from 'viem';
-import { uploadImage, uploadImageFromUrl, uploadMetadata, mineSalt, getDeployFee, getInitialBuyAmountOut, getProgress, getTokenFlags, getCurveState, getBuyQuote, getSellQuote, getAvailableBuy, getQuoteWithRouter } from '@/lib/nadfun/client';
+import { uploadImage, uploadImageFromUrl, uploadMetadata, mineSalt, getDeployFee, getInitialBuyAmountOut, getProgress, getTokenFlags, getCurveState, getBuyQuote, getSellQuote, getAvailableBuy, getQuoteWithRouter, getMarketCapMon } from '@/lib/nadfun/client';
 import { BONDING_CURVE_ROUTER } from '@/lib/nadfun/constants';
 import { bondingCurveRouterAbi, curveAbi, tradeRouterAbi } from '@/lib/nadfun/abi';
 import { BOT_REGISTRY_ABI } from '@/lib/abi';
@@ -191,12 +191,15 @@ export function TokenizePanel({
   const [monBalance, setMonBalance] = useState<bigint | null>(null);
   const [tokenSymbol, setTokenSymbol] = useState<string>('');
   const [tokenDecimals, setTokenDecimals] = useState<number>(18);
+  const [marketCapMon, setMarketCapMon] = useState<bigint | null>(null);
+  const [marketCapLoading, setMarketCapLoading] = useState(false);
 
   // Load comprehensive token stats
   const loadTokenStats = async () => {
     if (!botToken || !publicClient) return;
     setStatsLoading(true);
     setStatsError('');
+    setMarketCapLoading(true);
     try {
       const [progress, flags, curves] = await Promise.all([
         getProgress(publicClient, botToken).catch(() => null),
@@ -224,11 +227,21 @@ export function TokenizePanel({
         sellQuote: sellQuote || undefined,
         availableBuy: availableBuy || undefined,
       });
+
+      // Load market cap
+      try {
+        const mcap = await getMarketCapMon(publicClient, botToken);
+        setMarketCapMon(mcap.marketCapMon);
+      } catch (err) {
+        console.error('Failed to load market cap:', err);
+        setMarketCapMon(null);
+      }
     } catch (err) {
       console.error('Failed to load token stats:', err);
       setStatsError('Failed to load token stats');
     } finally {
       setStatsLoading(false);
+      setMarketCapLoading(false);
     }
   };
 
@@ -892,6 +905,22 @@ export function TokenizePanel({
                 </div>
               </div>
             )}
+
+            {/* Market Cap */}
+            <div className="bg-white/5 rounded p-3">
+              <div className="flex justify-between text-xs">
+                <span className="text-white/50">Market Cap (MON):</span>
+                <span className="text-white font-mono">
+                  {marketCapLoading ? (
+                    'Loading...'
+                  ) : marketCapMon !== null ? (
+                    formatUnitsDisplay(marketCapMon, 18, 4)
+                  ) : (
+                    '—'
+                  )}
+                </span>
+              </div>
+            </div>
 
             {statsError && (
               <p className="text-xs text-red-400">{statsError}</p>

@@ -14,6 +14,7 @@ export interface BotWithMetadata {
   description?: string;
   hasToken: boolean;
   tokenAddress?: `0x${string}`;
+  lifecycleState?: number;
 }
 
 export function useAllBots() {
@@ -86,6 +87,26 @@ export function useAllBots() {
                   return;
                 }
 
+                // Fetch lifecycle state
+                let lifecycleState: number | undefined;
+                try {
+                  lifecycleState = await publicClient.readContract({
+                    address: botAccount,
+                    abi: [
+                      {
+                        type: 'function',
+                        name: 'lifecycleState',
+                        stateMutability: 'view',
+                        inputs: [],
+                        outputs: [{ name: '', type: 'uint8' }],
+                      },
+                    ] as const,
+                    functionName: 'lifecycleState',
+                  }) as number;
+                } catch {
+                  lifecycleState = undefined;
+                }
+
                 // Decode metadata
                 const metadata = decodeMetadataURI(metadataURI);
                 const hasToken = tokenAddress !== '0x0000000000000000000000000000000000000000';
@@ -100,6 +121,7 @@ export function useAllBots() {
                     description: metadata?.description as string | undefined,
                     hasToken,
                     tokenAddress: hasToken ? tokenAddress : undefined,
+                    lifecycleState,
                   });
                 }
               } catch (err) {

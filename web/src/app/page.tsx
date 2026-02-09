@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { RecentAgentsCarousel } from '@/components/RecentAgentsCarousel';
 
 export default function HomePage() {
   return (
@@ -117,6 +118,9 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* Recently Created Agents Carousel */}
+      <RecentAgentsCarousel />
 
       {/* Footer */}
       <footer className="mt-16">

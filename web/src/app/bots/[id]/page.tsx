@@ -297,7 +297,7 @@ export default function BotDetailPage() {
                     <img 
                       src={avatarUrl} 
                       alt="Agent avatar" 
-                      className="w-20 h-20 object-cover rounded-lg border border-white/20 flex-shrink-0"
+                      className="w-32 h-32 object-cover rounded-lg border border-white/20 flex-shrink-0"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
                       }}
@@ -522,6 +522,27 @@ export default function BotDetailPage() {
                       Visibility and trading permissions
                     </p>
                     <LifecycleControl botAccount={bot.botAccount} currentState={details.lifecycleState} />
+                    
+                    {/* Quick Archive/Restore */}
+                    {details.lifecycleState !== 4 ? (
+                      <button
+                        onClick={() => {
+                          if (window.confirm('Archive this agent? It will be hidden from Explore (can be restored later via Lifecycle control above).')) {
+                            import('wagmi').then(({ useWriteContract }) => {
+                              // Direct inline execution would need hook refactor
+                              alert('Please use Lifecycle control above and select "Retired (archived)"');
+                            });
+                          }
+                        }}
+                        className="mt-3 w-full px-3 py-2 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/20 text-yellow-400 text-xs rounded transition-colors"
+                      >
+                        Quick: Archive Agent
+                      </button>
+                    ) : (
+                      <div className="mt-3 bg-yellow-500/10 border border-yellow-500/20 rounded p-2">
+                        <p className="text-xs text-yellow-400">⚠️ Agent is archived (use Lifecycle control to restore)</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Deposit */}

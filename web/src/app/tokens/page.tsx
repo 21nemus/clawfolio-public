@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { publicClient } from '@/lib/clients';
 import { BOT_REGISTRY_ABI } from '@/lib/abi';
 import { loadConfig } from '@/lib/config';
-import { getProgress } from '@/lib/nadfun/client';
+import { getProgress, getMarketCapMon } from '@/lib/nadfun/client';
 import { decodeMetadataURI } from '@/lib/encoding';
 import { AddressLink } from '@/components/AddressLink';
 import { CopyButton } from '@/components/CopyButton';
@@ -18,6 +18,8 @@ interface TokenizedBot {
   image?: string;
   progress?: bigint;
   progressLoading: boolean;
+  marketCapMon?: bigint;
+  marketCapLoading: boolean;
   error?: string;
 }
 
@@ -123,6 +125,7 @@ export default function TokensPage() {
                     handle: metadata?.handle as string | undefined,
                     image: metadata?.image as string | undefined,
                     progressLoading: true,
+                    marketCapLoading: true,
                   });
                 }
               } catch (err) {
@@ -144,33 +147,41 @@ export default function TokensPage() {
         setTokens([...tokenizedBots]);
         setLoading(false);
 
-        // Now fetch progress for each token (background)
-        for (const token of tokenizedBots) {
+        // Now fetch progress and market cap for each token (background, with concurrency)
+        const STATS_CONCURRENCY = 5;
+        for (let i = 0; i < tokenizedBots.length; i += STATS_CONCURRENCY) {
           if (cancelled) break;
-
-          try {
-            const progress = await getProgress(publicClient, token.tokenAddress);
-            if (!cancelled) {
-              setTokens((prev) =>
-                prev.map((t) =>
-                  t.botId === token.botId
-                    ? { ...t, progress, progressLoading: false }
-                    : t
-                )
-              );
-            }
-          } catch (err) {
-            console.error(`Failed to fetch progress for ${token.tokenAddress}:`, err);
-            if (!cancelled) {
-              setTokens((prev) =>
-                prev.map((t) =>
-                  t.botId === token.botId
-                    ? { ...t, error: 'Progress unavailable', progressLoading: false }
-                    : t
-                )
-              );
-            }
-          }
+          const batch = tokenizedBots.slice(i, i + STATS_CONCURRENCY);
+          await Promise.all(
+            batch.map(async (token) => {
+              try {
+                const [progress, mcap] = await Promise.all([
+                  getProgress(publicClient, token.tokenAddress).catch(() => null),
+                  getMarketCapMon(publicClient, token.tokenAddress).catch(() => null),
+                ]);
+                if (!cancelled) {
+                  setTokens((prev) =>
+                    prev.map((t) =>
+                      t.botId === token.botId
+                        ? { ...t, progress: progress || undefined, progressLoading: false, marketCapMon: mcap?.marketCapMon, marketCapLoading: false }
+                        : t
+                    )
+                  );
+                }
+              } catch (err) {
+                console.error(`Failed to fetch data for ${token.tokenAddress}:`, err);
+                if (!cancelled) {
+                  setTokens((prev) =>
+                    prev.map((t) =>
+                      t.botId === token.botId
+                        ? { ...t, error: 'Data unavailable', progressLoading: false, marketCapLoading: false }
+                        : t
+                    )
+                  );
+                }
+              }
+            })
+          );
         }
       } catch (err) {
         console.error('Failed to fetch tokenized bots:', err);
@@ -254,7 +265,7 @@ export default function TokensPage() {
                 <img
                   src={token.image}
                   alt={token.name || `Bot ${token.botId}`}
-                  className="w-16 h-16 object-cover rounded-lg border border-white/10 flex-shrink-0"
+                  className="w-20 h-20 object-cover rounded-lg border border-white/10 flex-shrink-0"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = 'none';
                   }}
@@ -304,12 +315,25 @@ export default function TokensPage() {
                 ) : null}
               </div>
 
+              <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                <span className="text-white/40 text-xs">Market Cap:</span>
+                <span className="text-white text-xs font-mono">
+                  {token.marketCapLoading ? (
+                    'Loading...'
+                  ) : token.marketCapMon !== undefined ? (
+                    `${(Number(token.marketCapMon) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 4 })} MON`
+                  ) : (
+                    '—'
+                  )}
+                </span>
+              </div>
+
               <div className="flex gap-2 pt-2">
                 <Link
                   href={`/bots/${token.botId}`}
                   className="flex-1 text-center px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-xs text-white transition-colors"
                 >
-                  View Bot
+                  View Agent
                 </Link>
                 <a
                   href={
