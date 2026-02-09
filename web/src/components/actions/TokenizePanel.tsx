@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { decodeEventLog, parseEther, formatEther } from 'viem';
-import { uploadImage, uploadMetadata, mineSalt, getDeployFee, getInitialBuyAmountOut, getProgress } from '@/lib/nadfun/client';
+import { uploadImage, uploadImageFromUrl, uploadMetadata, mineSalt, getDeployFee, getInitialBuyAmountOut, getProgress } from '@/lib/nadfun/client';
 import { BONDING_CURVE_ROUTER } from '@/lib/nadfun/constants';
 import { bondingCurveRouterAbi, curveAbi } from '@/lib/nadfun/abi';
 import { BOT_REGISTRY_ABI } from '@/lib/abi';
@@ -104,19 +104,49 @@ export function TokenizePanel({
     }
   };
 
-  const handleUseAgentAvatar = () => {
+  const handleUseAgentAvatar = async () => {
     if (!agentAvatarUrl) return;
-    setState((s) => ({ ...s, imageUri: agentAvatarUrl }));
-    setStep(2);
+    setLoading(true);
+    setError('');
+    try {
+      const result = await uploadImageFromUrl(agentAvatarUrl);
+      const imageUri = result.image_uri || result.url || result.image_url;
+      
+      if (!imageUri) {
+        throw new Error('No image URL in response');
+      }
+      
+      setState((s) => ({ ...s, imageUri }));
+      setStep(2);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to upload agent avatar');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleUseImageUrl = () => {
+  const handleUseImageUrl = async () => {
     if (!imageUrlInput || !imageUrlInput.startsWith('http')) {
       setError('Please enter a valid image URL (https://...)');
       return;
     }
-    setState((s) => ({ ...s, imageUri: imageUrlInput }));
-    setStep(2);
+    setLoading(true);
+    setError('');
+    try {
+      const result = await uploadImageFromUrl(imageUrlInput);
+      const imageUri = result.image_uri || result.url || result.image_url;
+      
+      if (!imageUri) {
+        throw new Error('No image URL in response');
+      }
+      
+      setState((s) => ({ ...s, imageUri }));
+      setStep(2);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to upload image from URL');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleImageUpload = async () => {
@@ -129,7 +159,7 @@ export function TokenizePanel({
     try {
       const result = await uploadImage(imageFile);
       // Robust to different response shapes (image_uri vs url vs image_url)
-      const imageUri = result.image_uri || (result as any).url || (result as any).image_url;
+      const imageUri = result.image_uri || result.url || result.image_url;
       if (!imageUri) {
         throw new Error('No image URL in response');
       }
@@ -381,19 +411,24 @@ export function TokenizePanel({
             {agentAvatarUrl ? 'or upload a different image:' : 'Upload token image:'}
           </div>
 
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-            className="block w-full text-sm text-white/60"
-          />
-          <button
-            onClick={handleImageUpload}
-            disabled={loading || !imageFile}
-            className="bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-4 py-2 rounded"
-          >
-            {loading ? 'Uploading...' : 'Upload Image'}
-          </button>
+          <div className="space-y-2">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-red-500 file:text-white file:cursor-pointer hover:file:bg-red-600 file:font-medium transition-colors"
+            />
+            <p className="text-xs text-white/40">
+              We upload the image to Nad.fun first (required for NSFW scan).
+            </p>
+            <button
+              onClick={handleImageUpload}
+              disabled={loading || !imageFile}
+              className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition-colors"
+            >
+              {loading ? 'Uploading...' : 'Upload Image'}
+            </button>
+          </div>
 
           <div className="text-center text-white/40 text-xs">
             or paste an image URL:

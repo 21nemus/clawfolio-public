@@ -43,6 +43,25 @@ export async function uploadImage(file: File): Promise<UploadImageResponse> {
 }
 
 /**
+ * Upload image from URL via internal proxy
+ * Fetches image from URL and forwards to Nad.fun
+ */
+export async function uploadImageFromUrl(url: string): Promise<UploadImageResponse> {
+  const res = await fetch('/api/nadfun/image-from-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Image upload from URL failed: ${err}`);
+  }
+
+  return res.json();
+}
+
+/**
  * Upload metadata via internal proxy
  */
 export async function uploadMetadata(payload: {

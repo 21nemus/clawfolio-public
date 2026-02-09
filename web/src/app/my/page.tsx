@@ -9,6 +9,8 @@ import { decodeMetadataURI } from '@/lib/encoding';
 import { AddressLink } from '@/components/AddressLink';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAgentAvatar } from '@/hooks/useAgentAvatar';
+import { useBotToken } from '@/hooks/useBotToken';
 
 interface MyBot {
   botId: bigint;
@@ -16,6 +18,70 @@ interface MyBot {
   name?: string;
   handle?: string;
   image?: string;
+}
+
+function MyBotCardWithAvatar({ bot, router }: { bot: MyBot; router: ReturnType<typeof useRouter> }) {
+  const appConfig = loadConfig();
+  const { token: botToken } = useBotToken(bot.botId);
+  
+  const { avatarUrl } = useAgentAvatar({
+    chainId: appConfig.chainId,
+    botId: bot.botId,
+    metadataImage: bot.image,
+    botToken: botToken || undefined,
+    hasToken: !!botToken,
+  });
+
+  return (
+    <div
+      className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:border-red-400/50 transition-all cursor-pointer group"
+      onClick={(e) => {
+        if (!(e.target as HTMLElement).closest('a')) {
+          router.push(`/bots/${bot.botId}`);
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          router.push(`/bots/${bot.botId}`);
+        }
+      }}
+      role="link"
+      tabIndex={0}
+    >
+      <div className="flex items-start gap-4 mb-4">
+        {avatarUrl && (
+          <img 
+            src={avatarUrl} 
+            alt={bot.name || `Bot ${bot.botId}`}
+            className="w-16 h-16 object-cover rounded-lg border border-white/10 flex-shrink-0"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        )}
+        <div className="flex-1">
+          <h3 className="text-xl font-bold text-white group-hover:text-red-400 transition-colors">
+            <Link href={`/bots/${bot.botId}`} className="hover:underline">
+              {bot.name || `Bot #${bot.botId.toString()}`}
+            </Link>
+          </h3>
+          {bot.handle && (
+            <p className="text-white/60 text-sm mt-1 font-mono">{bot.handle}</p>
+          )}
+        </div>
+      </div>
+      
+      <div className="space-y-2 text-sm">
+        {bot.botAccount && (
+          <div className="flex justify-between">
+            <span className="text-white/60">Account:</span>
+            <AddressLink address={bot.botAccount} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function MyBotsPage() {
@@ -136,7 +202,7 @@ export default function MyBotsPage() {
         </div>
       ) : bots.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-white/60 mb-4">You haven't created any agents yet.</p>
+          <p className="text-white/60 mb-4">You haven&apos;t created any agents yet.</p>
           <a
             href="/create"
             className="inline-block bg-red-500 hover:bg-red-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
@@ -147,55 +213,7 @@ export default function MyBotsPage() {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {bots.map((bot) => (
-            <div
-              key={bot.botId.toString()}
-              className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:border-red-400/50 transition-all cursor-pointer group"
-              onClick={(e) => {
-                if (!(e.target as HTMLElement).closest('a')) {
-                  router.push(`/bots/${bot.botId}`);
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  router.push(`/bots/${bot.botId}`);
-                }
-              }}
-              role="link"
-              tabIndex={0}
-            >
-              <div className="flex items-start gap-4 mb-4">
-                {bot.image && (
-                  <img 
-                    src={bot.image} 
-                    alt={bot.name || `Bot ${bot.botId}`}
-                    className="w-16 h-16 object-cover rounded-lg border border-white/10 flex-shrink-0"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                )}
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-white group-hover:text-red-400 transition-colors">
-                    <Link href={`/bots/${bot.botId}`} className="hover:underline">
-                      {bot.name || `Bot #${bot.botId.toString()}`}
-                    </Link>
-                  </h3>
-                  {bot.handle && (
-                    <p className="text-white/60 text-sm mt-1 font-mono">{bot.handle}</p>
-                  )}
-                </div>
-              </div>
-              
-              <div className="space-y-2 text-sm">
-                {bot.botAccount && (
-                  <div className="flex justify-between">
-                    <span className="text-white/60">Account:</span>
-                    <AddressLink address={bot.botAccount} />
-                  </div>
-                )}
-              </div>
-            </div>
+            <MyBotCardWithAvatar key={bot.botId.toString()} bot={bot} router={router} />
           ))}
         </div>
       )}

@@ -30,7 +30,7 @@ export function NetworkGuard() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-orange-500">Wrong Network</p>
               <p className="text-sm text-orange-400/90">
-                You're connected to chain {chainId}. Please switch to Monad Testnet (chain {config.chainId}).
+                You&apos;re connected to chain {chainId}. Please switch to Monad Testnet (chain {config.chainId}).
               </p>
             </div>
           </div>

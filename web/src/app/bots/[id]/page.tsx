@@ -6,7 +6,7 @@ import { useBotRegistryLogs, BotCreatedEvent } from '@/hooks/useBotRegistryLogs'
 import { useBotDetails, LIFECYCLE_STATES } from '@/hooks/useBotDetails';
 import { useBotEvents } from '@/hooks/useBotEvents';
 import { useBotToken } from '@/hooks/useBotToken';
-import { ProofPanel } from '@/components/ProofPanel';
+import { useAgentAvatar } from '@/hooks/useAgentAvatar';
 import { EventTimeline } from '@/components/EventTimeline';
 import { AddressLink } from '@/components/AddressLink';
 import { TxLink } from '@/components/TxLink';
@@ -26,11 +26,13 @@ import { decodeMetadataURI } from '@/lib/encoding';
 import { publicClient } from '@/lib/clients';
 import { BOT_REGISTRY_ABI } from '@/lib/abi';
 import { loadConfig } from '@/lib/config';
+import { uploadImage } from '@/lib/nadfun/client';
+import { setAgentImageOverride } from '@/lib/agentImageOverride';
 
 export default function BotDetailPage() {
   const params = useParams();
   const id = params.id as string;
-  const { logs, loading: logsLoading } = useBotRegistryLogs();
+  const { logs } = useBotRegistryLogs();
   const { address } = useAccount();
   
   const [bot, setBot] = useState<BotCreatedEvent | null>(null);
@@ -45,6 +47,21 @@ export default function BotDetailPage() {
 
   const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
   const [strategyExpanded, setStrategyExpanded] = useState(false);
+  
+  // Agent avatar resolver with fallbacks
+  const { avatarUrl, hasOverride, refreshOverride } = useAgentAvatar({
+    chainId: appConfig.chainId,
+    botId: bot?.botId || 0n,
+    metadataImage: metadata?.image as string | undefined,
+    botToken: botToken || undefined,
+    hasToken: !!botToken,
+  });
+  
+  // Image override upload UI state
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [imageUploadSuccess, setImageUploadSuccess] = useState(false);
 
   // Check logs first (fast path if bot is recent)
   useEffect(() => {
@@ -213,6 +230,35 @@ export default function BotDetailPage() {
 
   const isCreator = details && address && details.creator.toLowerCase() === address.toLowerCase();
 
+  const handleImageOverrideUpload = async () => {
+    if (!imageFile || !bot) return;
+    
+    setImageUploading(true);
+    setImageUploadError(null);
+    setImageUploadSuccess(false);
+    
+    try {
+      const result = await uploadImage(imageFile);
+      const imageUri = result.image_uri || result.url || result.image_url;
+      
+      if (!imageUri) {
+        throw new Error('No image URL in response');
+      }
+      
+      setAgentImageOverride(appConfig.chainId, bot.botId, imageUri);
+      refreshOverride();
+      setImageUploadSuccess(true);
+      setImageFile(null);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setImageUploadSuccess(false), 3000);
+    } catch (err: unknown) {
+      setImageUploadError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
   // Only block if we don't have a bot yet
   if (!bot && directLookupLoading) {
     return (
@@ -246,15 +292,22 @@ export default function BotDetailPage() {
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
               {/* Left: Bot Identity */}
               <div className="flex gap-5">
-                {metadata?.image ? (
-                  <img 
-                    src={metadata.image as string} 
-                    alt="Bot avatar" 
-                    className="w-20 h-20 object-cover rounded-lg border border-white/20 flex-shrink-0"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
+                {avatarUrl ? (
+                  <div className="relative">
+                    <img 
+                      src={avatarUrl} 
+                      alt="Agent avatar" 
+                      className="w-20 h-20 object-cover rounded-lg border border-white/20 flex-shrink-0"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    {hasOverride && (
+                      <div className="absolute -bottom-1 -right-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-medium">
+                        Custom
+                      </div>
+                    )}
+                  </div>
                 ) : null}
                 <div className="flex-1">
                   <h1 className="text-4xl font-bold mb-2 leading-tight">
@@ -298,6 +351,46 @@ export default function BotDetailPage() {
             </div>
           </div>
 
+          {/* Agent Image Override (Creator Only) */}
+          {isCreator && (
+            <div className="mb-8 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
+              <h3 className="text-lg font-bold mb-3 text-white">Agent Image</h3>
+              <p className="text-sm text-white/60 mb-4">
+                Upload a new image to change how your agent appears across the app. 
+                <span className="text-white/40"> (Local override, not onchain yet)</span>
+              </p>
+              
+              <div className="space-y-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    setImageFile(e.target.files?.[0] || null);
+                    setImageUploadError(null);
+                    setImageUploadSuccess(false);
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-red-500 file:text-white file:cursor-pointer hover:file:bg-red-600 file:font-medium transition-colors"
+                />
+                
+                <button
+                  onClick={handleImageOverrideUpload}
+                  disabled={imageUploading || !imageFile}
+                  className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition-colors font-medium"
+                >
+                  {imageUploading ? 'Uploading...' : 'Upload & Set Agent Image'}
+                </button>
+                
+                {imageUploadError && (
+                  <p className="text-sm text-red-400">{imageUploadError}</p>
+                )}
+                
+                {imageUploadSuccess && (
+                  <p className="text-sm text-green-400">✓ Agent image updated successfully!</p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* 2-Column Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
@@ -338,7 +431,7 @@ export default function BotDetailPage() {
                             ? metadata.strategyPrompt as string 
                             : (metadata.strategyPrompt as string).slice(0, 200) + ((metadata.strategyPrompt as string).length > 200 ? '...' : '')}
                         </p>
-                        <p className="text-xs text-white/30 mt-2">Guides the agent runner's trading decisions</p>
+                        <p className="text-xs text-white/30 mt-2">Guides the agent runner&apos;s trading decisions</p>
                       </div>
                     ) : null}
                   </div>
