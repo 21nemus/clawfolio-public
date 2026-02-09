@@ -6,6 +6,7 @@ import { parseEther, decodeEventLog } from 'viem';
 import { BotRegistryABI } from '@/abi/BotRegistry';
 import { loadConfig } from '@/lib/config';
 import { encodeMetadataURI } from '@/lib/encoding';
+import { resolveTokenInput, getTokenLabel } from '@/lib/tokenRegistry';
 import { ProofPanel } from '@/components/ProofPanel';
 import { TxLink } from '@/components/TxLink';
 import { AddressLink } from '@/components/AddressLink';
@@ -38,8 +39,11 @@ export default function CreatePage() {
   const [imageUploading, setImageUploading] = useState(false);
   const [operator, setOperator] = useState('');
   const [riskPreset, setRiskPreset] = useState<keyof typeof RISK_PRESETS>('balanced');
-  const [pathTokenA, setPathTokenA] = useState('');
-  const [pathTokenB, setPathTokenB] = useState('');
+  const [pathTokenA, setPathTokenA] = useState('MON');
+  const [pathTokenB, setPathTokenB] = useState('USDC');
+  const [advancedExpanded, setAdvancedExpanded] = useState(false);
+  const [pathTokenAError, setPathTokenAError] = useState<string | null>(null);
+  const [pathTokenBError, setPathTokenBError] = useState<string | null>(null);
 
   const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
   const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash });
@@ -81,6 +85,24 @@ export default function CreatePage() {
       return;
     }
 
+    // Resolve token inputs to addresses
+    const resolvedTokenA = resolveTokenInput(pathTokenA);
+    const resolvedTokenB = resolveTokenInput(pathTokenB);
+
+    // Check for validation errors
+    if ('error' in resolvedTokenA) {
+      setPathTokenAError(resolvedTokenA.error);
+      return;
+    }
+    if ('error' in resolvedTokenB) {
+      setPathTokenBError(resolvedTokenB.error);
+      return;
+    }
+
+    // Clear any previous errors
+    setPathTokenAError(null);
+    setPathTokenBError(null);
+
     const metadata = {
       name,
       description,
@@ -95,7 +117,7 @@ export default function CreatePage() {
     
     const allowedPaths: `0x${string}`[][] = [];
     if (pathTokenA && pathTokenB) {
-      allowedPaths.push([pathTokenA as `0x${string}`, pathTokenB as `0x${string}`]);
+      allowedPaths.push([resolvedTokenA.address, resolvedTokenB.address]);
     }
 
     try {
@@ -192,6 +214,11 @@ export default function CreatePage() {
               setImageUrl('');
               setImageFile(null);
               setHandle('');
+              setPathTokenA('MON');
+              setPathTokenB('USDC');
+              setAdvancedExpanded(false);
+              setPathTokenAError(null);
+              setPathTokenBError(null);
             }}
             className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-lg transition-colors"
           >
@@ -325,24 +352,74 @@ export default function CreatePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2">Allowed Trading Path</label>
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              type="text"
-              value={pathTokenA}
-              onChange={(e) => setPathTokenA(e.target.value)}
-              placeholder="Token A address"
-              className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 font-mono text-sm"
-            />
-            <input
-              type="text"
-              value={pathTokenB}
-              onChange={(e) => setPathTokenB(e.target.value)}
-              placeholder="Token B address"
-              className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 font-mono text-sm"
-            />
-          </div>
-          <p className="text-xs text-white/40 mt-1">At least one path is recommended</p>
+          <button
+            type="button"
+            onClick={() => setAdvancedExpanded(!advancedExpanded)}
+            className="flex items-center justify-between w-full text-left mb-2"
+          >
+            <label className="block text-sm font-medium cursor-pointer">
+              Advanced Settings
+            </label>
+            <svg
+              className={`w-5 h-5 text-white/60 transition-transform ${advancedExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          {!advancedExpanded && (
+            <div className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 mb-4">
+              <p className="text-xs text-white/60">
+                Allowed Trading: <span className="text-white font-mono">{pathTokenA} ↔ {pathTokenB}</span>
+              </p>
+            </div>
+          )}
+          
+          {advancedExpanded && (
+            <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-4">
+              <div>
+                <label className="block text-xs text-white/60 mb-2">Allowed Trading Path</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <input
+                      type="text"
+                      value={pathTokenA}
+                      onChange={(e) => {
+                        setPathTokenA(e.target.value);
+                        setPathTokenAError(null);
+                      }}
+                      placeholder="MON"
+                      className={`w-full bg-white/5 border ${pathTokenAError ? 'border-red-500/50' : 'border-white/10'} rounded-lg px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 font-mono text-sm`}
+                    />
+                    {pathTokenAError && (
+                      <p className="text-xs text-red-400 mt-1">{pathTokenAError}</p>
+                    )}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={pathTokenB}
+                      onChange={(e) => {
+                        setPathTokenB(e.target.value);
+                        setPathTokenBError(null);
+                      }}
+                      placeholder="USDC"
+                      className={`w-full bg-white/5 border ${pathTokenBError ? 'border-red-500/50' : 'border-white/10'} rounded-lg px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 font-mono text-sm`}
+                    />
+                    {pathTokenBError && (
+                      <p className="text-xs text-red-400 mt-1">{pathTokenBError}</p>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-white/40 mt-2">
+                  Use symbols (MON, USDC, USDT, etc.) or paste token addresses. Symbols will be resolved automatically.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {writeError && (
