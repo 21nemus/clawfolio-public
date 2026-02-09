@@ -28,7 +28,7 @@ export const monadTestnet = defineChain({
       url: config.explorerAddressUrlPrefix.replace('/address/', ''),
     },
   },
-  iconUrl: '/brand/monad.png',
+  iconUrl: '/brand/monad.png?v=3',
   iconBackground: '#000000',
   testnet: true,
 });
