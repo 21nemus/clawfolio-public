@@ -20,6 +20,7 @@ interface TokenizedBot {
   progressLoading: boolean;
   marketCapMon?: bigint;
   marketCapLoading: boolean;
+  tokenSymbol?: string;
   error?: string;
 }
 
@@ -28,6 +29,8 @@ export default function TokensPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'marketCap' | 'progress' | 'newest'>('newest');
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   const appConfig = loadConfig();
 
@@ -39,20 +42,23 @@ export default function TokensPage() {
       token.botId.toString().includes(query) ||
       token.tokenAddress.toLowerCase().includes(query) ||
       token.name?.toLowerCase().includes(query) ||
-      token.handle?.toLowerCase().includes(query)
+      token.handle?.toLowerCase().includes(query) ||
+      token.tokenSymbol?.toLowerCase().includes(query)
     );
   });
 
-  // Sort tokens: by progress desc (if available), then by botId desc
+  // Sort tokens based on selected sort option
   const sortedTokens = [...filteredTokens].sort((a, b) => {
-    // If both have progress, sort by progress desc
-    if (a.progress !== undefined && b.progress !== undefined) {
-      return Number(b.progress - a.progress);
+    if (sortBy === 'marketCap') {
+      const aMCap = a.marketCapMon || 0n;
+      const bMCap = b.marketCapMon || 0n;
+      if (aMCap !== bMCap) return Number(bMCap - aMCap);
+    } else if (sortBy === 'progress') {
+      const aProgress = a.progress || 0n;
+      const bProgress = b.progress || 0n;
+      if (aProgress !== bProgress) return Number(bProgress - aProgress);
     }
-    // If only one has progress, prioritize it
-    if (a.progress !== undefined) return -1;
-    if (b.progress !== undefined) return 1;
-    // Otherwise sort by botId desc
+    // Default to newest (botId desc)
     return Number(b.botId - a.botId);
   });
 
@@ -155,15 +161,28 @@ export default function TokensPage() {
           await Promise.all(
             batch.map(async (token) => {
               try {
-                const [progress, mcap] = await Promise.all([
+                const [progress, mcap, symbol] = await Promise.all([
                   getProgress(publicClient, token.tokenAddress).catch(() => null),
                   getMarketCapMon(publicClient, token.tokenAddress).catch(() => null),
+                  publicClient.readContract({
+                    address: token.tokenAddress,
+                    abi: [
+                      {
+                        type: 'function',
+                        name: 'symbol',
+                        stateMutability: 'view',
+                        inputs: [],
+                        outputs: [{ name: '', type: 'string' }],
+                      },
+                    ] as const,
+                    functionName: 'symbol',
+                  }).catch(() => null) as Promise<string | null>,
                 ]);
                 if (!cancelled) {
                   setTokens((prev) =>
                     prev.map((t) =>
                       t.botId === token.botId
-                        ? { ...t, progress: progress || undefined, progressLoading: false, marketCapMon: mcap?.marketCapMon, marketCapLoading: false }
+                        ? { ...t, progress: progress || undefined, progressLoading: false, marketCapMon: mcap?.marketCapMon, marketCapLoading: false, tokenSymbol: symbol || undefined }
                         : t
                     )
                   );
@@ -239,14 +258,38 @@ export default function TokensPage() {
         <p className="text-white/60">All launched tokens on Nad.fun ({tokens.length} total)</p>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 flex gap-3">
         <input
           type="text"
-          placeholder="Search by bot ID, token address, name, or handle..."
+          placeholder="Search by agent ID, ticker, name, or address..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
+          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
         />
+        <div className="relative">
+          <button
+            onClick={() => setShowSortDropdown(!showSortDropdown)}
+            className="px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+          >
+            Sort ▾
+          </button>
+          {showSortDropdown && (
+            <div className="absolute right-0 mt-2 w-56 bg-black/95 backdrop-blur-sm border border-white/20 rounded-lg shadow-xl z-10">
+              <div className="p-4">
+                <label className="block text-xs font-medium text-white/60 mb-2">Sort by</label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-400/50"
+                >
+                  <option value="newest">Agent ID (Newest)</option>
+                  <option value="marketCap">Market Cap</option>
+                  <option value="progress">Bonding Curve Progress</option>
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {filteredTokens.length === 0 && searchQuery ? (
@@ -277,6 +320,9 @@ export default function TokensPage() {
                     {token.name || `Bot #${token.botId.toString()}`}
                   </h3>
                 </Link>
+                {token.tokenSymbol && (
+                  <p className="text-sm text-red-400 font-mono truncate">${token.tokenSymbol}</p>
+                )}
                 {token.handle && (
                   <p className="text-sm text-white/60 font-mono truncate">{token.handle}</p>
                 )}

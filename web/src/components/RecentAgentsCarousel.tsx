@@ -143,81 +143,72 @@ export function RecentAgentsCarousel() {
     return null;
   }
 
-  const radius = 180; // Radius of the circle in pixels
-  const angleStep = (2 * Math.PI) / agents.length;
+  // Duplicate agents for seamless loop
+  const duplicatedAgents = [...agents, ...agents];
 
   return (
     <div className="relative w-full py-20 overflow-hidden">
-      <h2 className="text-3xl font-bold text-center mb-16">Recently Created Agents</h2>
+      <h2 className="text-3xl font-bold text-center mb-8">Recently Created Agents</h2>
       
-      <div className="relative w-full" style={{ height: `${radius * 2 + 200}px` }}>
+      {/* Ticker container */}
+      <div className="relative w-full overflow-hidden bg-white/5 border-y border-white/10 py-4">
         <div 
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+          className="flex gap-6"
           style={{
-            width: `${radius * 2}px`,
-            height: `${radius * 2}px`,
-            animation: 'rotate360 40s linear infinite',
+            animation: 'scroll-left 40s linear infinite',
+            width: 'max-content',
           }}
         >
-          {agents.map((agent, idx) => {
-            const angle = idx * angleStep;
-            const x = Math.cos(angle - Math.PI / 2) * radius;
-            const y = Math.sin(angle - Math.PI / 2) * radius;
-
-            return (
-              <Link
-                key={agent.botId.toString()}
-                href={`/bots/${agent.botId}`}
-                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-                style={{
-                  transform: `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${-angle + Math.PI / 2}rad)`,
-                }}
-              >
-                <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 hover:border-red-400/50 hover:scale-105 transition-all w-48">
-                  <div className="flex flex-col items-center text-center space-y-2">
-                    <img
-                      src={agent.image}
-                      alt={agent.name}
-                      className="w-16 h-16 object-cover rounded-lg border border-white/10"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                    <div>
-                      <h3 className="text-sm font-semibold text-white truncate max-w-full">
-                        {agent.name}
-                      </h3>
-                      {agent.handle && (
-                        <p className="text-xs text-white/60 font-mono truncate max-w-full">
-                          {agent.handle}
-                        </p>
-                      )}
-                    </div>
+          {duplicatedAgents.map((agent, idx) => (
+            <Link
+              key={`${agent.botId.toString()}-${idx}`}
+              href={`/bots/${agent.botId}`}
+              className="flex-shrink-0"
+            >
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 hover:border-red-400/50 hover:scale-105 transition-all w-64">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={agent.image}
+                    alt={agent.name}
+                    className="w-12 h-12 object-cover rounded-lg border border-white/10 flex-shrink-0"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-white truncate">
+                      {agent.name}
+                    </h3>
                     {agent.tokenSymbol && (
-                      <div className="text-xs text-white/80">
-                        <span className="font-mono text-red-400">${agent.tokenSymbol}</span>
-                        {agent.marketCapMon && (
-                          <div className="text-white/60 mt-1">
-                            MCap: {(Number(agent.marketCapMon) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 2 })} MON
-                          </div>
-                        )}
-                      </div>
+                      <p className="text-xs font-mono text-red-400 truncate">
+                        ${agent.tokenSymbol}
+                      </p>
+                    )}
+                    {agent.handle && (
+                      <p className="text-xs text-white/60 font-mono truncate">
+                        {agent.handle}
+                      </p>
+                    )}
+                    {agent.marketCapMon && (
+                      <p className="text-xs text-white/60 truncate">
+                        MCap: {(Number(agent.marketCapMon) / 1e18).toLocaleString(undefined, { maximumFractionDigits: 2 })} MON
+                      </p>
                     )}
                   </div>
                 </div>
-              </Link>
-            );
-          })}
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
 
       <style jsx>{`
-        @keyframes rotate360 {
+        @keyframes scroll-left {
           from {
-            transform: translate(-50%, -50%) rotate(0deg);
+            transform: translateX(0);
           }
           to {
-            transform: translate(-50%, -50%) rotate(360deg);
+            transform: translateX(-50%);
           }
         }
 

@@ -63,6 +63,8 @@ export default function CreatePage() {
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string>('');
   const [imageError, setImageError] = useState<string>('');
   const [imageUploading, setImageUploading] = useState(false);
+  const [website, setWebsite] = useState('');
+  const [twitter, setTwitter] = useState('');
   const [operator, setOperator] = useState('');
   const [riskPreset, setRiskPreset] = useState<keyof typeof RISK_PRESETS>('balanced');
   const [customMaxMon, setCustomMaxMon] = useState('1');
@@ -197,6 +199,8 @@ export default function CreatePage() {
       strategyPrompt: strategyPrompt || undefined,
       image: imageUrl || undefined,
       handle: handle || undefined,
+      website: website || undefined,
+      twitter: twitter || undefined,
     };
 
     const metadataURI = encodeMetadataURI(metadata);
@@ -523,6 +527,28 @@ export default function CreatePage() {
             value={handle}
             onChange={(e) => setHandle(e.target.value)}
             placeholder="@my-bot"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Website (optional)</label>
+          <input
+            type="text"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            placeholder="https://..."
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">X / Twitter (optional)</label>
+          <input
+            type="text"
+            value={twitter}
+            onChange={(e) => setTwitter(e.target.value)}
+            placeholder="https://x.com/... or @username"
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
           />
         </div>

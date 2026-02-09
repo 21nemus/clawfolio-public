@@ -68,8 +68,8 @@ function TopBotCardWithAvatar({ bot, idx }: { bot: TopBot; idx: number }) {
             )}
             <div className="mt-2 space-y-1">
               <div className="flex items-center gap-2 text-xs">
-                <span className="text-white/60">Trades:</span>
-                <span className="text-white font-medium">{bot.nonce?.toString() || '0'}</span>
+                <span className="text-white/60">Agent #</span>
+                <span className="text-white font-medium">{bot.botId.toString()}</span>
               </div>
               {bot.lifecycleState !== undefined && (
                 <div className="flex items-center gap-2 text-xs">
@@ -135,8 +135,8 @@ function AllBotCardWithAvatar({ bot }: { bot: BotWithMetadata }) {
             {bot.handle && (
               <p className="text-sm text-white/60 mt-1 font-mono truncate">{bot.handle}</p>
             )}
-            <p className="text-white/40 text-xs mt-2 font-mono break-all">
-              {bot.botAccount.slice(0, 10)}...{bot.botAccount.slice(-8)}
+            <p className="text-white/40 text-xs mt-2">
+              Agent #{bot.botId.toString()}
             </p>
           </div>
         </div>
@@ -153,13 +153,20 @@ function AllBotCardWithAvatar({ bot }: { bot: BotWithMetadata }) {
 export default function BotsPage() {
   const { bots, loading, error } = useAllBots();
   const [searchQuery, setSearchQuery] = useState('');
-  const [showArchived, setShowArchived] = useState(false);
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const [tokenFilter, setTokenFilter] = useState<'all' | 'token' | 'noToken'>('all');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'marketCap' | 'activity'>('newest');
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [topBots, setTopBots] = useState<TopBot[]>([]);
 
-  // Filter bots based on search and archive status
-  const filteredBots = bots.filter((bot) => {
+  // Filter bots based on search, archive status, and token filter
+  let filteredBots = bots.filter((bot) => {
     // Filter archived unless explicitly enabled
-    if (!showArchived && bot.lifecycleState === 4) return false;
+    if (!includeArchived && bot.lifecycleState === 4) return false;
+    
+    // Filter by token status
+    if (tokenFilter === 'token' && !bot.hasToken) return false;
+    if (tokenFilter === 'noToken' && bot.hasToken) return false;
     
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
@@ -175,6 +182,21 @@ export default function BotsPage() {
     );
   });
 
+  // Apply sorting
+  if (sortBy === 'newest') {
+    filteredBots = [...filteredBots].sort((a, b) => Number(b.botId - a.botId));
+  } else if (sortBy === 'oldest') {
+    filteredBots = [...filteredBots].sort((a, b) => Number(a.botId - b.botId));
+  } else if (sortBy === 'activity') {
+    // Sort by nonce (requires topBots data)
+    const nonceMap = new Map(topBots.map(bot => [bot.botId.toString(), bot.nonce || 0n]));
+    filteredBots = [...filteredBots].sort((a, b) => {
+      const aNonce = nonceMap.get(a.botId.toString()) || 0n;
+      const bNonce = nonceMap.get(b.botId.toString()) || 0n;
+      return Number(bNonce - aNonce);
+    });
+  }
+
   // Fetch Top Bots (ranked by nonce)
   useEffect(() => {
     if (loading || bots.length === 0) return;
@@ -183,16 +205,18 @@ export default function BotsPage() {
 
     const fetchTopBots = async () => {
       try {
-        // Fetch nonce for first 50 bots (or all if less)
-        const botsToRank = bots.slice(0, Math.min(50, bots.length));
+        // Filter out archived agents first, then fetch nonce for first 50 bots (or all if less)
+        const activeBotsToRank = bots
+          .filter((bot) => includeArchived || bot.lifecycleState !== 4)
+          .slice(0, Math.min(50, bots.length));
         const CONCURRENCY = 5;
 
         const rankedBots: TopBot[] = [];
 
-        for (let i = 0; i < botsToRank.length; i += CONCURRENCY) {
+        for (let i = 0; i < activeBotsToRank.length; i += CONCURRENCY) {
           if (cancelled) break;
 
-          const batch = botsToRank.slice(i, i + CONCURRENCY);
+          const batch = activeBotsToRank.slice(i, i + CONCURRENCY);
           const results = await Promise.all(
             batch.map(async (bot) => {
               try {
@@ -272,7 +296,7 @@ export default function BotsPage() {
     return () => {
       cancelled = true;
     };
-  }, [bots, loading]);
+  }, [bots, loading, includeArchived]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -281,23 +305,68 @@ export default function BotsPage() {
         <p className="text-white/60">All trading agents deployed onchain</p>
       </div>
 
-      <div className="mb-6 space-y-3">
+      <div className="mb-6 flex gap-3">
         <input
           type="text"
-          placeholder="Search by bot ID, name, handle, or address..."
+          placeholder="Search by agent ID, name, handle, or address..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
+          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
         />
-        <label className="flex items-center gap-2 text-sm text-white/60 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showArchived}
-            onChange={(e) => setShowArchived(e.target.checked)}
-            className="w-4 h-4 rounded border-white/20 bg-white/5 checked:bg-red-500"
-          />
-          Show archived agents
-        </label>
+        <div className="relative">
+          <button
+            onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+            className="px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+          >
+            Filters ▾
+          </button>
+          {showFilterDropdown && (
+            <div className="absolute right-0 mt-2 w-64 bg-black/95 backdrop-blur-sm border border-white/20 rounded-lg shadow-xl z-10">
+              <div className="p-4 space-y-4">
+                {/* Sort options */}
+                <div>
+                  <label className="block text-xs font-medium text-white/60 mb-2">Sort by</label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-400/50"
+                  >
+                    <option value="newest">Agent ID (Newest)</option>
+                    <option value="oldest">Agent ID (Oldest)</option>
+                    <option value="activity">Activity</option>
+                    <option value="marketCap">Market Cap</option>
+                    <option value="pnlComingSoon" disabled>PnL (coming soon)</option>
+                  </select>
+                </div>
+
+                {/* Token filter */}
+                <div>
+                  <label className="block text-xs font-medium text-white/60 mb-2">Token Status</label>
+                  <select
+                    value={tokenFilter}
+                    onChange={(e) => setTokenFilter(e.target.value as typeof tokenFilter)}
+                    className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-red-400/50"
+                  >
+                    <option value="all">All Agents</option>
+                    <option value="token">Token Launched</option>
+                    <option value="noToken">No Token</option>
+                  </select>
+                </div>
+
+                {/* Include archived toggle */}
+                <label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeArchived}
+                    onChange={(e) => setIncludeArchived(e.target.checked)}
+                    className="w-4 h-4 rounded border-white/20 bg-white/5 checked:bg-red-500"
+                  />
+                  Include archived
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {error && (

@@ -316,7 +316,7 @@ export default function BotDetailPage() {
                   {metadata?.handle ? (
                     <p className="text-white/50 font-mono text-sm mb-3">{metadata.handle as string}</p>
                   ) : null}
-                  <div className="flex items-center gap-2 text-sm">
+                  <div className="flex items-center gap-2 text-sm mb-3">
                     <AddressLink address={bot.botAccount} />
                     <CopyButton text={bot.botAccount} label="address" />
                     {appConfig.explorerAddressUrlPrefix && (
@@ -331,6 +331,34 @@ export default function BotDetailPage() {
                     )}
                   </div>
                 </div>
+                {metadata && (metadata.website || metadata.twitter) ? (
+                  <div className="mt-3 flex items-center gap-2">
+                    {metadata.website && typeof metadata.website === 'string' ? (
+                      <a
+                        href={metadata.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full text-xs text-white/80 hover:text-white transition-colors"
+                      >
+                        🌐 Website
+                      </a>
+                    ) : null}
+                    {metadata.twitter && typeof metadata.twitter === 'string' ? (
+                      <a
+                        href={
+                          metadata.twitter.startsWith('http')
+                            ? metadata.twitter
+                            : `https://x.com/${metadata.twitter.replace('@', '')}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full text-xs text-white/80 hover:text-white transition-colors"
+                      >
+                        𝕏 X
+                      </a>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               {/* Right: Status Pills */}
