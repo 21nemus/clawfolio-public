@@ -62,7 +62,51 @@ export function Navbar() {
             </div>
           </div>
 
-          <ConnectButton />
+          <ConnectButton.Custom>
+            {({ account, chain, mounted, openAccountModal, openConnectModal }) => {
+              const ready = mounted;
+              const connected = ready && account && chain;
+
+              if (!ready) return null;
+
+              if (!connected) {
+                return (
+                  <button
+                    type="button"
+                    onClick={openConnectModal}
+                    className="inline-flex items-center justify-center bg-white/10 hover:bg-white/20 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm"
+                  >
+                    Connect Wallet
+                  </button>
+                );
+              }
+
+              return (
+                <button
+                  type="button"
+                  onClick={openAccountModal}
+                  className="inline-flex items-center gap-3 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl transition-colors"
+                >
+                  {account?.displayBalance ? (
+                    <span className="text-sm font-semibold tabular-nums">
+                      {account.displayBalance}
+                    </span>
+                  ) : null}
+                  <img
+                    src="/brand/monad.png"
+                    alt="Monad"
+                    width={16}
+                    height={16}
+                    className="w-4 h-4 rounded-sm"
+                  />
+                  <span className="text-sm font-semibold">
+                    {account.displayName}
+                  </span>
+                  <span className="text-white/70 text-sm leading-none">▾</span>
+                </button>
+              );
+            }}
+          </ConnectButton.Custom>
         </div>
       </div>
     </nav>
