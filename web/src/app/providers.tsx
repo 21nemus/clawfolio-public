@@ -26,7 +26,17 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
+        <RainbowKitProvider
+          avatar={({ size }) => (
+            <img
+              src="/brand/monad.png"
+              alt="Monad"
+              width={size}
+              height={size}
+              style={{ borderRadius: 9999 }}
+            />
+          )}
+        >
           {children}
         </RainbowKitProvider>
       </QueryClientProvider>
