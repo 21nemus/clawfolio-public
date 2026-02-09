@@ -3,7 +3,7 @@
  * displayedAvatar = localOverride > onchainMetadataImage > tokenImage > null
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { getAgentImageOverride } from '@/lib/agentImageOverride';
 import { useNadfunTokenImage } from './useNadfunTokenImage';
 
