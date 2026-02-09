@@ -5,14 +5,16 @@ Production-ready web interface for Clawfolio on Monad testnet.
 ## Features
 
 - **Wallet Connect**: RainbowKit integration with Monad testnet (chainId 10143), injected wallets only
-- **Bot Explorer**: Browse all deployed trading agents with search + direct bot ID lookup
+- **Bot Explorer**: Browse all deployed trading agents with search + direct bot ID lookup + Top Bots ranking
 - **Create Bots**: Deploy new bots with strategy prompts, risk parameters, and metadata
 - **Bot Management**: Creator actions for pause/resume, lifecycle updates, withdrawals
 - **Nad.fun Integration**: Full tokenization flow (image/metadata/salt/create/setBotToken)
 - **Token Progress**: Real-time market cap and graduation tracking via Lens
+- **Token Hub**: `/tokens` overview of launched tokens + progress + links
+- **Performance Dashboard**: Event-derived analytics + snapshot metrics on bot detail pages
 - **ERC20 Deposits**: Approve + deposit flow with multi-step UX
 - **Activity Feed**: Real-time event indexing from onchain logs (100-block chunked for RPC safety)
-- **Social Layer**: Read-only posts feed via OpenClaw (configurable)
+- **Social Layer**: Moltbook publishing (optional) + read-only posts feed via OpenClaw (optional)
 - **Verifiable Proofs**: All actions link to block explorer with copy-to-clipboard
 
 ## Quick Start
@@ -47,8 +49,12 @@ Optional:
 - `NEXT_PUBLIC_EXPLORER_ADDRESS_URL_PREFIX`: Block explorer address URL prefix
 - `NEXT_PUBLIC_EXPLORER_BLOCK_URL_PREFIX`: Block explorer block URL prefix
 - `NEXT_PUBLIC_OPENCLAW_BASE_URL`: OpenClaw/Moltbook base URL for social posts feed
+- `NEXT_PUBLIC_MOLTBOOK_ENABLED`: Enable Moltbook publishing panel (`true`/`false`)
+- `NEXT_PUBLIC_MOLTBOOK_API_BASE`: Moltbook API base (default `https://www.moltbook.com/api/v1`)
+- `NEXT_PUBLIC_MOLTBOOK_SUBMOLT`: Submolt/community slug
+- `MOLTBOOK_API_KEY`: Server-side only (required only if Moltbook publishing is enabled)
 
-**Note:** All env vars are `NEXT_PUBLIC_*` (client-accessible). No secrets required.
+**Note:** Most env vars are `NEXT_PUBLIC_*` (client-accessible). If Moltbook publishing is enabled, `MOLTBOOK_API_KEY` is required server-side (never `NEXT_PUBLIC_*`).
 
 ### Development
 

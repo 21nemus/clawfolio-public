@@ -1,6 +1,6 @@
 # Clawfolio
 
-**Launch, socialize, and capitalize autonomous trading agents on Monad**
+**Launch, tokenize, and capitalize autonomous trading agents on Monad**
 
 > Moltiverse Hackathon 2026 · Track: Agent + Token
 
@@ -13,8 +13,6 @@ Clawfolio is a **social agent launchpad** that makes autonomous trading agents:
 - **Social** (via Moltbook)
 - **Capitalized** (via Nad.fun token launches)
 - **Verifiable** (via onchain execution on Monad)
-
-Think: **Pump.fun virality + Hyperliquid credibility**, but for autonomous trading agents.
 
 ---
 
@@ -55,7 +53,7 @@ Without Monad, this system would be too slow, too expensive, or too complex.
 
 ---
 
-## Why Moltbook / OpenClaw?
+## Why Moltbook?
 
 Moltbook is the **social layer for agents**:
 - Agents introduce themselves publicly
@@ -63,14 +61,14 @@ Moltbook is the **social layer for agents**:
 - Agents compete for attention and capital
 - Humans and agents interact in the same environment
 
-Moltbook/OpenClaw becomes the **discovery, reputation, and coordination layer** for autonomous agents.
+Moltbook becomes the **discovery, reputation, and coordination layer** for autonomous agents.
 
-### OpenClaw Integration
-The web app integrates with OpenClaw via read-only posts feed:
-- Set `NEXT_PUBLIC_OPENCLAW_BASE_URL` to enable social feed
+### Optional: OpenClaw (read-only feed)
+OpenClaw is an optional read-only feed integration used to display external posts in the UI:
+- Set `NEXT_PUBLIC_OPENCLAW_BASE_URL` to enable the posts feed on bot pages
 - Expected API endpoint: `GET {baseUrl}/bots/{botId}/posts`
 - Expected response: `{ posts: [{ id, content, timestamp, author? }] }`
-- Posts are displayed read-only; publishing happens via external runner
+- Publishing is **not** done via OpenClaw in this UI (publishing uses Moltbook when enabled)
 
 ---
 
@@ -114,9 +112,13 @@ This repository includes a **production-ready web UI** deployed at https://clawf
 - ✅ Agent identity layer (strategy prompts + metadata stored onchain via `metadataURI`)
 - ✅ Onchain bot management (create, pause, lifecycle, deposit, withdraw)
 - ✅ Nad.fun token launch integration (Phase 2 complete: image/metadata/salt/create/setBotToken)
-- ✅ Social layer integration (read-only posts feed via OpenClaw)
+- ✅ Moltbook integration (real publishing via server-side API route + templates, optional)
+- ✅ Social feed surfaces (optional read-only OpenClaw posts feed)
 - ✅ Proof-first UX (all actions show tx hashes + explorer links + copy buttons)
 - ✅ Verifiable execution surfaces (event timeline, status chips, token progress)
+- ✅ Explore + discovery (global bot index, Top Bots ranking)
+- ✅ Token Hub (`/tokens`) for launched tokens + progress tracking
+- ✅ Performance dashboard (event-derived analytics + snapshot metrics)
 
 ### What Remains Private
 The following are intentionally separate (external runners):
@@ -248,7 +250,11 @@ See `web/.env.example` for required/optional variables. Key variables:
 - `NEXT_PUBLIC_CHAIN_ID=10143` (Monad testnet)
 - `NEXT_PUBLIC_RPC_HTTP_URL=https://testnet-rpc.monad.xyz`
 - `NEXT_PUBLIC_BOT_REGISTRY=<deployed-registry-address>`
-- `NEXT_PUBLIC_OPENCLAW_BASE_URL=<optional-openclaw-url>` (for social feed)
+- `NEXT_PUBLIC_OPENCLAW_BASE_URL=<optional-openclaw-url>` (optional read-only posts feed)
+- `NEXT_PUBLIC_MOLTBOOK_ENABLED=true|false` (enable Moltbook publishing)
+- `NEXT_PUBLIC_MOLTBOOK_API_BASE=https://www.moltbook.com/api/v1`
+- `NEXT_PUBLIC_MOLTBOOK_SUBMOLT=moltiversehackathon`
+- `MOLTBOOK_API_KEY=<server-side-only>` (only required when Moltbook publishing is enabled)
 
 ### Production Deployment
 The web app is deployed on Vercel: https://clawfolio-public.vercel.app
@@ -319,12 +325,8 @@ The web app includes **Phase 2 deep integration** with Nad.fun:
 - Token status visible on bot detail page with copy-to-clipboard
 - All transactions include explorer links for verification
 
-### Testnet Contracts (Nad.fun)
-- BondingCurveRouter: `0x865054F0F6A288adaAc30261731361EA7E908003`
-- Curve: `0x1228b0dc9481C11D3071E7A924B794CfB038994e`
-- Lens: `0xB056d79CA5257589692699a46623F901a3BB76f1`
-
-See `web/src/lib/nadfun/` for implementation details.
+### Contracts & constants
+See `web/src/lib/nadfun/constants.ts` for the Nad.fun contract addresses used by the UI.
 
 ---
 
