@@ -312,12 +312,16 @@ export default function TokensPage() {
                   View Bot
                 </Link>
                 <a
-                  href={`https://nad.fun/token/${token.tokenAddress}`}
+                  href={
+                    appConfig.explorerAddressUrlPrefix
+                      ? `${appConfig.explorerAddressUrlPrefix}${token.tokenAddress}`
+                      : `https://monadvision.com/address/${token.tokenAddress}`
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 text-center px-3 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded text-xs text-red-400 transition-colors"
                 >
-                  Nad.fun →
+                  Explorer →
                 </a>
               </div>
             </div>

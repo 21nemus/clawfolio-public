@@ -6,7 +6,7 @@ import { parseEther, decodeEventLog } from 'viem';
 import { BotRegistryABI } from '@/abi/BotRegistry';
 import { loadConfig } from '@/lib/config';
 import { encodeMetadataURI } from '@/lib/encoding';
-import { resolveTokenInput, getTokenLabel } from '@/lib/tokenRegistry';
+import { resolveTokenInput } from '@/lib/tokenRegistry';
 import { uploadImage } from '@/lib/nadfun/client';
 import { ProofPanel } from '@/components/ProofPanel';
 import { TxLink } from '@/components/TxLink';
@@ -30,6 +30,25 @@ const RISK_PRESETS = {
     minSecondsBetweenTrades: 300n, // placeholder, will be overridden
   },
 };
+
+const STRATEGY_PRESETS = [
+  {
+    name: 'Momentum',
+    prompt: `Execute momentum-based trades on Monad Testnet within your allowed trading path. Buy when 15-minute volume exceeds 2x the rolling average and price breaks above recent resistance. Sell when momentum fades (volume drops or price stalls). Always respect your max trade size and cooldown limits. Avoid trading on illiquid pairs or during extreme slippage.`,
+  },
+  {
+    name: 'MeanRevert',
+    prompt: `Trade mean-reversion opportunities within your allowed trading path. Buy when price drops below 20-period moving average by 3%+ with confirmed support. Set stop-loss at 5% below entry. Take profit when price returns to mean or crosses above. Monitor liquidity on Kuru Exchange (Monad Testnet). Respect risk limits and cooldown between trades.`,
+  },
+  {
+    name: 'DCA',
+    prompt: `Implement dollar-cost averaging strategy within your allowed trading path on Monad Testnet. Make periodic small buys (within your max trade size) when simple trend filter is positive (e.g., price above 50-period MA). Occasionally take profit at 10%+ gains. Avoid buying during obvious downtrends. Respect cooldown and risk parameters.`,
+  },
+  {
+    name: 'Range',
+    prompt: `Trade range-bound markets within your allowed trading path. Buy near identified local support levels, sell near local resistance. Use recent swing lows/highs to define range boundaries. Exit immediately if range breaks with volume. Avoid chasing price outside the range. Always check liquidity before trades. Respect your max trade size and cooldown settings.`,
+  },
+];
 
 export default function CreatePage() {
   const { address, isConnected } = useAccount();
@@ -318,7 +337,7 @@ export default function CreatePage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Create Bot</h1>
+        <h1 className="text-4xl font-bold mb-2">Create Trading Agent</h1>
         <p className="text-white/60">Deploy a new autonomous trading agent</p>
       </div>
 
@@ -329,7 +348,7 @@ export default function CreatePage() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="My Trading Bot"
+            placeholder="My Trading Agent"
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
           />
         </div>
@@ -347,9 +366,35 @@ export default function CreatePage() {
 
         <div>
           <label className="block text-sm font-medium mb-2">Strategy Prompt</label>
+          
+          {/* Strategy Presets */}
+          <div className="mb-3 flex gap-2 flex-wrap">
+            {STRATEGY_PRESETS.map((preset) => (
+              <button
+                key={preset.name}
+                type="button"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', preset.prompt);
+                }}
+                onClick={() => setStrategyPrompt(preset.prompt)}
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-red-400/50 text-white text-xs rounded-lg transition-colors cursor-move"
+                title="Click to apply or drag to textarea"
+              >
+                {preset.name}
+              </button>
+            ))}
+          </div>
+          
           <textarea
             value={strategyPrompt}
             onChange={(e) => setStrategyPrompt(e.target.value)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const text = e.dataTransfer.getData('text/plain');
+              if (text) setStrategyPrompt(text);
+            }}
             placeholder="Trade MON/USDC pairs based on momentum signals. Buy when 15-min volume spikes above 2x average..."
             rows={4}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50 font-mono text-sm"
@@ -564,7 +609,7 @@ export default function CreatePage() {
           disabled={!name || isPending || isConfirming || imageUploading}
           className="w-full bg-red-500 hover:bg-red-600 disabled:bg-white/10 disabled:text-white/40 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-lg transition-colors"
         >
-          {imageUploading ? 'Uploading image...' : isPending ? 'Waiting for signature...' : isConfirming ? 'Creating agent...' : 'Create Agent'}
+          {imageUploading ? 'Uploading image...' : isPending ? 'Waiting for signature...' : isConfirming ? 'Creating agent...' : 'Create Trading Agent'}
         </button>
       </div>
     </div>

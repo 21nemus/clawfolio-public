@@ -186,8 +186,11 @@ export function TokenizePanel({
   const [tradeQuote, setTradeQuote] = useState<{ router: `0x${string}`; amountOut: bigint } | null>(null);
   const [tradeLoading, setTradeLoading] = useState(false);
   const [tradeError, setTradeError] = useState('');
+  const [tradeSuccess, setTradeSuccess] = useState('');
   const [tokenBalance, setTokenBalance] = useState<bigint | null>(null);
   const [monBalance, setMonBalance] = useState<bigint | null>(null);
+  const [tokenSymbol, setTokenSymbol] = useState<string>('');
+  const [tokenDecimals, setTokenDecimals] = useState<number>(18);
 
   // Load comprehensive token stats
   const loadTokenStats = async () => {
@@ -237,30 +240,42 @@ export function TokenizePanel({
     setShowErrorDetails(false);
   }, []);
 
-  // Load balances for trading
-  useEffect(() => {
+  // Load balances and token metadata for trading
+  const loadBalances = useCallback(async () => {
     if (!botToken || !address || !publicClient) return;
     
-    const loadBalances = async () => {
-      try {
-        const [mon, token] = await Promise.all([
-          publicClient.getBalance({ address }),
-          publicClient.readContract({
-            address: botToken,
-            abi: ERC20ABI,
-            functionName: 'balanceOf',
-            args: [address],
-          }) as Promise<bigint>,
-        ]);
-        setMonBalance(mon);
-        setTokenBalance(token);
-      } catch (err) {
-        console.error('Failed to load balances:', err);
-      }
-    };
-
-    loadBalances();
+    try {
+      const [mon, token, symbol, decimals] = await Promise.all([
+        publicClient.getBalance({ address }),
+        publicClient.readContract({
+          address: botToken,
+          abi: ERC20ABI,
+          functionName: 'balanceOf',
+          args: [address],
+        }) as Promise<bigint>,
+        publicClient.readContract({
+          address: botToken,
+          abi: ERC20ABI,
+          functionName: 'symbol',
+        }) as Promise<string>,
+        publicClient.readContract({
+          address: botToken,
+          abi: ERC20ABI,
+          functionName: 'decimals',
+        }) as Promise<number>,
+      ]);
+      setMonBalance(mon);
+      setTokenBalance(token);
+      setTokenSymbol(symbol);
+      setTokenDecimals(decimals);
+    } catch (err) {
+      console.error('Failed to load balances:', err);
+    }
   }, [botToken, address, publicClient]);
+
+  useEffect(() => {
+    loadBalances();
+  }, [loadBalances]);
 
   // Debounced quote fetching for trade
   useEffect(() => {
@@ -594,6 +609,7 @@ export function TokenizePanel({
 
     setTradeLoading(true);
     setTradeError('');
+    setTradeSuccess('');
 
     try {
       const amountIn = parseEther(tradeAmount);
@@ -618,22 +634,14 @@ export function TokenizePanel({
       await publicClient?.waitForTransactionReceipt({ hash });
       
       // Refresh balances
-      if (publicClient) {
-        const [mon, token] = await Promise.all([
-          publicClient.getBalance({ address }),
-          publicClient.readContract({
-            address: botToken,
-            abi: ERC20ABI,
-            functionName: 'balanceOf',
-            args: [address],
-          }) as Promise<bigint>,
-        ]);
-        setMonBalance(mon);
-        setTokenBalance(token);
-      }
-
+      await loadBalances();
+      
+      setTradeSuccess(`Bought ~${formatUnitsDisplay(tradeQuote.amountOut, 18, 2)} tokens`);
       setTradeAmount('');
       setTradeQuote(null);
+      
+      // Clear success after 5s
+      setTimeout(() => setTradeSuccess(''), 5000);
     } catch (err) {
       const formatted = formatWalletError(err);
       setTradeError(formatted.summary);
@@ -650,6 +658,7 @@ export function TokenizePanel({
 
     setTradeLoading(true);
     setTradeError('');
+    setTradeSuccess('');
 
     try {
       const amountIn = parseEther(tradeAmount);
@@ -694,20 +703,14 @@ export function TokenizePanel({
       await publicClient.waitForTransactionReceipt({ hash });
       
       // Refresh balances
-      const [mon, token] = await Promise.all([
-        publicClient.getBalance({ address }),
-        publicClient.readContract({
-          address: botToken,
-          abi: ERC20ABI,
-          functionName: 'balanceOf',
-          args: [address],
-        }) as Promise<bigint>,
-      ]);
-      setMonBalance(mon);
-      setTokenBalance(token);
+      await loadBalances();
 
+      setTradeSuccess(`Sold for ~${formatUnitsDisplay(tradeQuote.amountOut, 18, 4)} MON`);
       setTradeAmount('');
       setTradeQuote(null);
+      
+      // Clear success after 5s
+      setTimeout(() => setTradeSuccess(''), 5000);
     } catch (err) {
       const formatted = formatWalletError(err);
       setTradeError(formatted.summary);
@@ -716,11 +719,35 @@ export function TokenizePanel({
     }
   };
 
-  // Build Nad.fun URLs based on chainId
-  const isTestnet = appConfig.chainId === 10143;
-  const nadfunTestnetUrl = botToken ? `https://testnet.nad.fun/v3/tokens/${botToken}` : null;
-  const nadfunMainUrl = botToken ? `https://nad.fun/tokens/${botToken}` : null;
+  const handleAddToWallet = async () => {
+    if (!botToken || !tokenSymbol) return;
+    
+    try {
+      const ethereum = (window as { ethereum?: { request: (args: { method: string; params: unknown }) => Promise<unknown> } }).ethereum;
+      if (!ethereum) {
+        alert('MetaMask not detected');
+        return;
+      }
 
+      await ethereum.request({
+        method: 'wallet_watchAsset',
+        params: {
+          type: 'ERC20',
+          options: {
+            address: botToken,
+            symbol: tokenSymbol,
+            decimals: tokenDecimals,
+            image: botMetadata?.image as string | undefined,
+          },
+        },
+      });
+    } catch (err) {
+      console.error('Failed to add token to wallet:', err);
+      // Don't show error - user may have rejected
+    }
+  };
+
+  // Build explorer URL
   const explorerTokenUrl = botToken && appConfig.explorerAddressUrlPrefix
     ? `${appConfig.explorerAddressUrlPrefix}${botToken}`
     : botToken
@@ -740,6 +767,41 @@ export function TokenizePanel({
               <AddressLink address={botToken} />
               <CopyButton text={botToken} label="token" />
             </div>
+
+            {/* Your Balances */}
+            {address && (
+              <div className="bg-white/5 rounded p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-white/40 font-medium">Your Balances</p>
+                  <button
+                    onClick={loadBalances}
+                    className="text-xs text-white/60 hover:text-red-400 transition-colors"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-white/50">MON:</span>
+                  <span className="text-white font-mono">
+                    {monBalance !== null ? formatUnitsDisplay(monBalance, 18, 4) : '...'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-white/50">{tokenSymbol || 'Token'}:</span>
+                  <span className="text-white font-mono">
+                    {tokenBalance !== null ? formatUnitsDisplay(tokenBalance, 18, 4) : '...'}
+                  </span>
+                </div>
+                {tokenSymbol && (
+                  <button
+                    onClick={handleAddToWallet}
+                    className="w-full mt-2 text-xs bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-400/50 text-white/70 px-3 py-2 rounded transition-colors"
+                  >
+                    Add {tokenSymbol} to Wallet
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Phase Badges */}
             {tokenStats.isGraduated !== undefined && (
@@ -839,6 +901,13 @@ export function TokenizePanel({
             {address && !tokenStats.isLocked && (
               <div className="bg-white/5 rounded p-4 space-y-3 border border-white/10">
                 <h4 className="text-sm font-medium text-white">Trade Token</h4>
+                
+                {/* Success Message */}
+                {tradeSuccess && (
+                  <div className="bg-green-500/10 border border-green-500/20 rounded p-2">
+                    <p className="text-xs text-green-400">{tradeSuccess}</p>
+                  </div>
+                )}
                 
                 {/* Tabs */}
                 <div className="flex gap-2">
@@ -973,45 +1042,6 @@ export function TokenizePanel({
               >
                 {statsLoading ? 'Loading Stats...' : 'Refresh Stats'}
               </button>
-
-              {/* Nad.fun Links */}
-              {isTestnet && nadfunTestnetUrl && (
-                <>
-                  <a
-                    href={nadfunTestnetUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-300 text-sm px-4 py-2 rounded transition-colors font-medium"
-                  >
-                    Open on Nad.fun (Testnet UI)
-                    <span className="text-purple-400">↗</span>
-                  </a>
-                  <p className="text-xs text-white/30 px-2">
-                    If testnet UI doesn&apos;t load, your DNS may block testnet.nad.fun.
-                  </p>
-                  <a
-                    href={nadfunMainUrl!}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-300 text-sm px-4 py-2 rounded transition-colors font-medium"
-                  >
-                    Open on Nad.fun (Main UI)
-                    <span className="text-purple-400">↗</span>
-                  </a>
-                </>
-              )}
-
-              {!isTestnet && nadfunMainUrl && (
-                <a
-                  href={nadfunMainUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-300 text-sm px-4 py-2 rounded transition-colors font-medium"
-                >
-                  Open on Nad.fun
-                  <span className="text-purple-400">↗</span>
-                </a>
-              )}
 
               {explorerTokenUrl && (
                 <a
