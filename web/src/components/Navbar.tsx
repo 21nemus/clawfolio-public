@@ -28,9 +28,9 @@ export function Navbar() {
             
             <div className="hidden md:flex items-center gap-6">
               <Link 
-                href="/bots" 
+                href="/agents" 
                 className={`text-sm font-medium transition-colors hover:text-red-400 ${
-                  isActive('/bots') ? 'text-red-400' : 'text-white/70'
+                  isActive('/agents') || isActive('/bots') ? 'text-red-400' : 'text-white/70'
                 }`}
               >
                 Explore

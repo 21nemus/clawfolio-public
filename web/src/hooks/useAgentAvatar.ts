@@ -13,6 +13,7 @@ interface UseAgentAvatarOptions {
   metadataImage?: string | null;
   botToken?: `0x${string}`;
   hasToken?: boolean;
+  disableLocalOverride?: boolean;
 }
 
 export function useAgentAvatar({
@@ -21,15 +22,17 @@ export function useAgentAvatar({
   metadataImage,
   botToken,
   hasToken,
+  disableLocalOverride = false,
 }: UseAgentAvatarOptions) {
   // Initialize override directly from localStorage (runs once on mount)
   const [localOverride, setLocalOverride] = useState<string | null>(() => {
+    if (disableLocalOverride) return null;
     return getAgentImageOverride(chainId, botId);
   });
 
   // Only attempt token fallback if:
   // - bot hasToken true
-  // - no override
+  // - no override (or override disabled)
   // - no metadataImage
   const shouldFetchTokenImage = hasToken && !localOverride && !metadataImage && botToken;
   const { tokenImageUrl } = useNadfunTokenImage(shouldFetchTokenImage ? botToken : undefined);

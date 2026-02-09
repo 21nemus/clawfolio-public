@@ -315,7 +315,7 @@ export default function TokensPage() {
                 />
               )}
               <div className="flex-1 min-w-0">
-                <Link href={`/bots/${token.botId}`}>
+                <Link href={`/agents/${token.botId}`}>
                   <h3 className="text-lg font-bold text-white hover:text-red-400 transition-colors truncate">
                     {token.name || `Bot #${token.botId.toString()}`}
                   </h3>
@@ -376,7 +376,7 @@ export default function TokensPage() {
 
               <div className="flex gap-2 pt-2">
                 <Link
-                  href={`/bots/${token.botId}`}
+                  href={`/agents/${token.botId}`}
                   className="flex-1 text-center px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-xs text-white transition-colors"
                 >
                   View Agent

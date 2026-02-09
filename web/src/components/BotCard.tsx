@@ -23,13 +23,13 @@ export function BotCard({ bot, name, handle, image, hasToken }: BotCardProps) {
     if ((e.target as HTMLElement).closest('a')) {
       return;
     }
-    router.push(`/bots/${bot.botId}`);
+    router.push(`/agents/${bot.botId}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      router.push(`/bots/${bot.botId}`);
+      router.push(`/agents/${bot.botId}`);
     }
   };
 
@@ -55,7 +55,7 @@ export function BotCard({ bot, name, handle, image, hasToken }: BotCardProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-xl font-bold text-white group-hover:text-red-400 transition-colors">
-              <Link href={`/bots/${bot.botId}`} className="hover:underline">
+              <Link href={`/agents/${bot.botId}`} className="hover:underline">
                 {name || `Bot #${bot.botId.toString()}`}
               </Link>
             </h3>

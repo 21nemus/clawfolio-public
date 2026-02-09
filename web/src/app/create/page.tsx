@@ -352,7 +352,7 @@ export default function CreatePage() {
 
         <div className="mt-6 flex gap-4">
           <a
-            href={`/bots/${createdBotId}`}
+            href={`/agents/${createdBotId}`}
             className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg transition-colors"
           >
             View Agent →
@@ -520,38 +520,46 @@ export default function CreatePage() {
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2">Moltbook Handle (optional)</label>
-          <input
-            type="text"
-            value={handle}
-            onChange={(e) => setHandle(e.target.value)}
-            placeholder="@my-bot"
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
-          />
-        </div>
+        {/* Social Links (collapsible) */}
+        <details className="bg-white/5 border border-white/10 rounded-lg">
+          <summary className="cursor-pointer px-4 py-3 font-medium text-white hover:bg-white/5 transition-colors">
+            Social (optional)
+          </summary>
+          <div className="px-4 pb-4 pt-2 space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2 text-white/80">Moltbook Handle</label>
+              <input
+                type="text"
+                value={handle}
+                onChange={(e) => setHandle(e.target.value)}
+                placeholder="@my-bot"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
+              />
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2">Website (optional)</label>
-          <input
-            type="text"
-            value={website}
-            onChange={(e) => setWebsite(e.target.value)}
-            placeholder="https://..."
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
-          />
-        </div>
+            <div>
+              <label className="block text-sm font-medium mb-2 text-white/80">Website</label>
+              <input
+                type="text"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                placeholder="https://..."
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
+              />
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2">X / Twitter (optional)</label>
-          <input
-            type="text"
-            value={twitter}
-            onChange={(e) => setTwitter(e.target.value)}
-            placeholder="https://x.com/... or @username"
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
-          />
-        </div>
+            <div>
+              <label className="block text-sm font-medium mb-2 text-white/80">X / Twitter</label>
+              <input
+                type="text"
+                value={twitter}
+                onChange={(e) => setTwitter(e.target.value)}
+                placeholder="https://x.com/... or @username"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-red-400/50"
+              />
+            </div>
+          </div>
+        </details>
 
         <div>
           <label className="block text-sm font-medium mb-2">Risk Management</label>

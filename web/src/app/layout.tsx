@@ -5,6 +5,7 @@ import { Providers } from "./providers";
 import { Navbar } from "@/components/Navbar";
 import { ConfigBanner } from "@/components/ConfigBanner";
 import { NetworkGuard } from "@/components/NetworkGuard";
+import { Footer } from "@/components/Footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +37,7 @@ export default function RootLayout({
           <ConfigBanner />
           <NetworkGuard />
           <main>{children}</main>
+          <Footer />
         </Providers>
       </body>
     </html>

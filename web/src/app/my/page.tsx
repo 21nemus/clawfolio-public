@@ -37,13 +37,13 @@ function MyBotCardWithAvatar({ bot, router }: { bot: MyBot; router: ReturnType<t
       className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6 hover:border-red-400/50 transition-all cursor-pointer group"
       onClick={(e) => {
         if (!(e.target as HTMLElement).closest('a')) {
-          router.push(`/bots/${bot.botId}`);
+          router.push(`/agents/${bot.botId}`);
         }
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          router.push(`/bots/${bot.botId}`);
+          router.push(`/agents/${bot.botId}`);
         }
       }}
       role="link"
@@ -62,7 +62,7 @@ function MyBotCardWithAvatar({ bot, router }: { bot: MyBot; router: ReturnType<t
         )}
         <div className="flex-1">
           <h3 className="text-xl font-bold text-white group-hover:text-red-400 transition-colors">
-            <Link href={`/bots/${bot.botId}`} className="hover:underline">
+            <Link href={`/agents/${bot.botId}`} className="hover:underline">
               {bot.name || `Bot #${bot.botId.toString()}`}
             </Link>
           </h3>

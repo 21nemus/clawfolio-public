@@ -162,19 +162,30 @@ export function RecentAgentsCarousel() {
           {duplicatedAgents.map((agent, idx) => (
             <Link
               key={`${agent.botId.toString()}-${idx}`}
-              href={`/bots/${agent.botId}`}
+              href={`/agents/${agent.botId}`}
               className="flex-shrink-0"
             >
               <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4 hover:border-red-400/50 hover:scale-105 transition-all w-64">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={agent.image}
-                    alt={agent.name}
-                    className="w-12 h-12 object-cover rounded-lg border border-white/10 flex-shrink-0"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
+                  <div className="flex items-center gap-3">
+                    {agent.image ? (
+                      <img
+                        src={agent.image}
+                        alt={agent.name}
+                        className="w-12 h-12 object-cover rounded-lg border border-white/10 flex-shrink-0"
+                        onError={(e) => {
+                          // Replace with placeholder on error
+                          const initials = agent.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+                          const placeholder = document.createElement('div');
+                          placeholder.className = 'w-12 h-12 rounded-lg border border-white/10 bg-gradient-to-br from-red-500/20 to-purple-500/20 flex items-center justify-center text-white/80 font-bold text-sm flex-shrink-0';
+                          placeholder.textContent = initials;
+                          (e.target as HTMLImageElement).replaceWith(placeholder);
+                        }}
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg border border-white/10 bg-gradient-to-br from-red-500/20 to-purple-500/20 flex items-center justify-center text-white/80 font-bold text-sm flex-shrink-0">
+                        {agent.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-semibold text-white truncate">
                       {agent.name}
