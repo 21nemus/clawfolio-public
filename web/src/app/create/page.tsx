@@ -7,6 +7,7 @@ import { BotRegistryABI } from '@/abi/BotRegistry';
 import { loadConfig } from '@/lib/config';
 import { encodeMetadataURI } from '@/lib/encoding';
 import { resolveTokenInput, getTokenLabel } from '@/lib/tokenRegistry';
+import { uploadImage } from '@/lib/nadfun/client';
 import { ProofPanel } from '@/components/ProofPanel';
 import { TxLink } from '@/components/TxLink';
 import { AddressLink } from '@/components/AddressLink';
@@ -63,24 +64,21 @@ export default function CreatePage() {
     
     try {
       setImageUploading(true);
-      const formData = new FormData();
-      formData.append('image', imageFile);
+      const result = await uploadImage(imageFile);
       
-      const res = await fetch('/api/nadfun/image', {
-        method: 'POST',
-        body: formData,
-      });
+      // Robust handling of different response shapes
+      const imageUri = result.image_uri || result.url || result.image_url;
       
-      if (!res.ok) {
-        throw new Error('Image upload failed');
+      if (!imageUri) {
+        throw new Error('No image URL in response');
       }
       
-      const data = await res.json();
-      setImageUrl(data.image_url || '');
+      setImageUrl(imageUri);
       setImageFile(null);
     } catch (err) {
       console.error('Image upload error:', err);
       alert('Image upload failed. Try pasting a URL instead.');
+      // Don't clear the file on error so user can retry
     } finally {
       setImageUploading(false);
     }
@@ -90,6 +88,30 @@ export default function CreatePage() {
     if (!config.botRegistry) {
       alert('BotRegistry address not configured');
       return;
+    }
+
+    // Auto-upload image if file is selected but not yet uploaded
+    if (imageFile && !imageUrl) {
+      try {
+        setImageUploading(true);
+        const result = await uploadImage(imageFile);
+        const imageUri = result.image_uri || result.url || result.image_url;
+        
+        if (!imageUri) {
+          alert('Image upload failed. Please try again or paste a URL instead.');
+          setImageUploading(false);
+          return;
+        }
+        
+        setImageUrl(imageUri);
+        setImageFile(null);
+        setImageUploading(false);
+      } catch (err) {
+        console.error('Auto-upload error:', err);
+        alert('Image upload failed. Please try again or paste a URL instead.');
+        setImageUploading(false);
+        return;
+      }
     }
 
     // Resolve token inputs to addresses
@@ -539,10 +561,10 @@ export default function CreatePage() {
 
         <button
           onClick={handleCreate}
-          disabled={!name || isPending || isConfirming}
+          disabled={!name || isPending || isConfirming || imageUploading}
           className="w-full bg-red-500 hover:bg-red-600 disabled:bg-white/10 disabled:text-white/40 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-lg transition-colors"
         >
-          {isPending ? 'Waiting for signature...' : isConfirming ? 'Creating bot...' : 'Create Bot'}
+          {imageUploading ? 'Uploading image...' : isPending ? 'Waiting for signature...' : isConfirming ? 'Creating agent...' : 'Create Agent'}
         </button>
       </div>
     </div>

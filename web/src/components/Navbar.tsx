@@ -49,7 +49,7 @@ export function Navbar() {
                   isActive('/my') ? 'text-red-400' : 'text-white/70'
                 }`}
               >
-                My Trading Agents
+                Trading Agents
               </Link>
               <Link 
                 href="/tokens" 
