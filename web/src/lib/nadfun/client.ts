@@ -151,3 +151,118 @@ export async function getProgress(
     args: [token],
   }) as Promise<bigint>;
 }
+
+/**
+ * Get token flags (graduated, locked) from LENS
+ */
+export async function getTokenFlags(
+  publicClient: PublicClient,
+  token: `0x${string}`
+): Promise<{ isGraduated: boolean; isLocked: boolean }> {
+  const [isGraduated, isLocked] = await Promise.all([
+    publicClient.readContract({
+      address: LENS,
+      abi: lensAbi,
+      functionName: 'isGraduated',
+      args: [token],
+    }) as Promise<boolean>,
+    publicClient.readContract({
+      address: LENS,
+      abi: lensAbi,
+      functionName: 'isLocked',
+      args: [token],
+    }) as Promise<boolean>,
+  ]);
+  return { isGraduated, isLocked };
+}
+
+/**
+ * Get curve state from CURVE contract
+ */
+export async function getCurveState(
+  publicClient: PublicClient,
+  token: `0x${string}`
+): Promise<{
+  realMonReserve: bigint;
+  realTokenReserve: bigint;
+  virtualMonReserve: bigint;
+  virtualTokenReserve: bigint;
+  k: bigint;
+  targetTokenAmount: bigint;
+  initVirtualMonReserve: bigint;
+  initVirtualTokenReserve: bigint;
+}> {
+  const result = await publicClient.readContract({
+    address: CURVE,
+    abi: curveAbi,
+    functionName: 'curves',
+    args: [token],
+  });
+  
+  return {
+    realMonReserve: result[0],
+    realTokenReserve: result[1],
+    virtualMonReserve: result[2],
+    virtualTokenReserve: result[3],
+    k: result[4],
+    targetTokenAmount: result[5],
+    initVirtualMonReserve: result[6],
+    initVirtualTokenReserve: result[7],
+  };
+}
+
+/**
+ * Get buy quote (MON → Tokens)
+ */
+export async function getBuyQuote(
+  publicClient: PublicClient,
+  token: `0x${string}`,
+  monIn: bigint
+): Promise<bigint> {
+  const result = await publicClient.readContract({
+    address: LENS,
+    abi: lensAbi,
+    functionName: 'getAmountOut',
+    args: [token, monIn, true],
+  });
+  // Returns [router, amountOut]
+  return result[1];
+}
+
+/**
+ * Get sell quote (Tokens → MON)
+ */
+export async function getSellQuote(
+  publicClient: PublicClient,
+  token: `0x${string}`,
+  tokenIn: bigint
+): Promise<bigint> {
+  const result = await publicClient.readContract({
+    address: LENS,
+    abi: lensAbi,
+    functionName: 'getAmountOut',
+    args: [token, tokenIn, false],
+  });
+  // Returns [router, amountOut]
+  return result[1];
+}
+
+/**
+ * Get available buyable tokens
+ */
+export async function getAvailableBuy(
+  publicClient: PublicClient,
+  token: `0x${string}`
+): Promise<{ availableBuyToken: bigint; requiredMonAmount: bigint }> {
+  const result = await publicClient.readContract({
+    address: LENS,
+    abi: lensAbi,
+    functionName: 'availableBuyTokens',
+    args: [token],
+  });
+  
+  return {
+    availableBuyToken: result[0],
+    requiredMonAmount: result[1],
+  };
+}

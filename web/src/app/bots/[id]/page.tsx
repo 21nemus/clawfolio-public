@@ -351,46 +351,6 @@ export default function BotDetailPage() {
             </div>
           </div>
 
-          {/* Agent Image Override (Creator Only) */}
-          {isCreator && (
-            <div className="mb-8 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-6">
-              <h3 className="text-lg font-bold mb-3 text-white">Agent Image</h3>
-              <p className="text-sm text-white/60 mb-4">
-                Upload a new image to change how your agent appears across the app. 
-                <span className="text-white/40"> (Local override, not onchain yet)</span>
-              </p>
-              
-              <div className="space-y-3">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    setImageFile(e.target.files?.[0] || null);
-                    setImageUploadError(null);
-                    setImageUploadSuccess(false);
-                  }}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-red-500 file:text-white file:cursor-pointer hover:file:bg-red-600 file:font-medium transition-colors"
-                />
-                
-                <button
-                  onClick={handleImageOverrideUpload}
-                  disabled={imageUploading || !imageFile}
-                  className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition-colors font-medium"
-                >
-                  {imageUploading ? 'Uploading...' : 'Upload & Set Agent Image'}
-                </button>
-                
-                {imageUploadError && (
-                  <p className="text-sm text-red-400">{imageUploadError}</p>
-                )}
-                
-                {imageUploadSuccess && (
-                  <p className="text-sm text-green-400">✓ Agent image updated successfully!</p>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* 2-Column Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
@@ -583,6 +543,66 @@ export default function BotDetailPage() {
                     </p>
                     <WithdrawControl botAccount={bot.botAccount} creatorAddress={details.creator} />
                   </div>
+
+                  {/* Agent Image Override (Creator Only) */}
+                  {isCreator && (
+                    <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-4">
+                      <h4 className="font-medium text-white text-sm mb-2">🎨 Agent Image</h4>
+                      <p className="text-xs text-white/50 mb-3">
+                        Change how your agent appears.
+                        <span className="text-white/40"> (Local override)</span>
+                      </p>
+                      
+                      {avatarUrl && (
+                        <div className="mb-3 flex justify-center">
+                          <div className="relative">
+                            <img 
+                              src={avatarUrl} 
+                              alt="Current avatar" 
+                              className="w-16 h-16 object-cover rounded-lg border border-white/10"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                            {hasOverride && (
+                              <div className="absolute -bottom-1 -right-1 bg-red-500 text-white text-[9px] px-1 py-0.5 rounded-full font-medium">
+                                Custom
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            setImageFile(e.target.files?.[0] || null);
+                            setImageUploadError(null);
+                            setImageUploadSuccess(false);
+                          }}
+                          className="w-full bg-white/5 border border-white/10 rounded px-2 py-2 text-white text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-red-500 file:text-white file:cursor-pointer hover:file:bg-red-600 file:text-xs transition-colors"
+                        />
+                        
+                        <button
+                          onClick={handleImageOverrideUpload}
+                          disabled={imageUploading || !imageFile}
+                          className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-2 rounded text-xs font-medium transition-colors"
+                        >
+                          {imageUploading ? 'Uploading...' : 'Upload & Set'}
+                        </button>
+                        
+                        {imageUploadError && (
+                          <p className="text-xs text-red-400">{imageUploadError}</p>
+                        )}
+                        
+                        {imageUploadSuccess && (
+                          <p className="text-xs text-green-400">✓ Updated!</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Moltbook Publishing */}
                   {appConfig.moltbookEnabled && (

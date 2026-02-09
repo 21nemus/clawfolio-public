@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { decodeEventLog, parseEther, formatEther } from 'viem';
-import { uploadImage, uploadImageFromUrl, uploadMetadata, mineSalt, getDeployFee, getInitialBuyAmountOut, getProgress } from '@/lib/nadfun/client';
+import { uploadImage, uploadImageFromUrl, uploadMetadata, mineSalt, getDeployFee, getInitialBuyAmountOut, getProgress, getTokenFlags, getCurveState, getBuyQuote, getSellQuote, getAvailableBuy } from '@/lib/nadfun/client';
 import { BONDING_CURVE_ROUTER } from '@/lib/nadfun/constants';
 import { bondingCurveRouterAbi, curveAbi } from '@/lib/nadfun/abi';
 import { BOT_REGISTRY_ABI } from '@/lib/abi';
@@ -135,18 +135,62 @@ export function TokenizePanel({
     }
   }, [botMetadata]);
 
-  // Load token progress if already tokenized
-  const [progressLoading, setProgressLoading] = useState(false);
-  const loadTokenProgress = async () => {
+  // Token stats state
+  const [tokenStats, setTokenStats] = useState<{
+    progress?: bigint;
+    isGraduated?: boolean;
+    isLocked?: boolean;
+    reserves?: {
+      realMonReserve: bigint;
+      realTokenReserve: bigint;
+      virtualMonReserve: bigint;
+      virtualTokenReserve: bigint;
+      targetTokenAmount: bigint;
+    };
+    buyQuote?: bigint;
+    sellQuote?: bigint;
+    availableBuy?: { availableBuyToken: bigint; requiredMonAmount: bigint };
+  }>({});
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState('');
+
+  // Load comprehensive token stats
+  const loadTokenStats = async () => {
     if (!botToken || !publicClient) return;
-    setProgressLoading(true);
+    setStatsLoading(true);
+    setStatsError('');
     try {
-      const progress = await getProgress(publicClient, botToken);
-      setState((s) => ({ ...s, progress: { value: progress } }));
+      const [progress, flags, curves] = await Promise.all([
+        getProgress(publicClient, botToken).catch(() => null),
+        getTokenFlags(publicClient, botToken).catch(() => ({ isGraduated: false, isLocked: false })),
+        getCurveState(publicClient, botToken).catch(() => null),
+      ]);
+
+      // Get quotes
+      const buyQuote = await getBuyQuote(publicClient, botToken, parseEther('0.1')).catch(() => null);
+      const sellQuote = await getSellQuote(publicClient, botToken, parseEther('100')).catch(() => null);
+      const availableBuy = await getAvailableBuy(publicClient, botToken).catch(() => null);
+
+      setTokenStats({
+        progress: progress || undefined,
+        isGraduated: flags.isGraduated,
+        isLocked: flags.isLocked,
+        reserves: curves ? {
+          realMonReserve: curves.realMonReserve,
+          realTokenReserve: curves.realTokenReserve,
+          virtualMonReserve: curves.virtualMonReserve,
+          virtualTokenReserve: curves.virtualTokenReserve,
+          targetTokenAmount: curves.targetTokenAmount,
+        } : undefined,
+        buyQuote: buyQuote || undefined,
+        sellQuote: sellQuote || undefined,
+        availableBuy: availableBuy || undefined,
+      });
     } catch (err) {
-      console.error('Failed to load progress:', err);
+      console.error('Failed to load token stats:', err);
+      setStatsError('Failed to load token stats');
     } finally {
-      setProgressLoading(false);
+      setStatsLoading(false);
     }
   };
 
@@ -455,38 +499,152 @@ export function TokenizePanel({
     }
   };
 
+  // Build correct Nad.fun URL based on chainId
+  const nadfunUrl = botToken 
+    ? appConfig.chainId === 10143 
+      ? `https://testnet.nad.fun/v3/tokens/${botToken}`
+      : `https://nad.fun/tokens/${botToken}`
+    : null;
+
+  const explorerTokenUrl = botToken && appConfig.explorerAddressUrlPrefix
+    ? `${appConfig.explorerAddressUrlPrefix}${botToken}`
+    : botToken
+    ? `https://monadvision.com/address/${botToken}`
+    : null;
+
   // Read-only status for non-creators or already tokenized
   if (!isCreator || botToken) {
     return (
       <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-5">
         <h3 className="text-base font-semibold mb-4 text-white">Token Status</h3>
         {botToken ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* Token Address */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-white/50">Token:</span>
               <AddressLink address={botToken} />
               <CopyButton text={botToken} label="token" />
             </div>
-            <button
-              onClick={loadTokenProgress}
-              disabled={progressLoading}
-              className="text-xs text-white/60 hover:text-red-400 disabled:opacity-50 transition-colors"
-            >
-              {progressLoading ? 'Loading...' : 'Load Progress'}
-            </button>
-            {state.progress && (
-              <div className="text-xs text-white/50">
-                <p>Progress: {state.progress.value.toString()}</p>
+
+            {/* Phase Badges */}
+            {tokenStats.isGraduated !== undefined && (
+              <div className="flex gap-2">
+                {tokenStats.isGraduated ? (
+                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 rounded">
+                    Graduated (DEX)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded">
+                    Bonding Curve
+                  </span>
+                )}
+                {tokenStats.isLocked && (
+                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 rounded">
+                    Locked
+                  </span>
+                )}
               </div>
             )}
-            <a
-              href={`https://nad.fun/token/${botToken}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block text-xs text-white/60 hover:text-red-400 transition-colors mt-2"
-            >
-              View on Nad.fun →
-            </a>
+
+            {/* Stats */}
+            {tokenStats.progress !== undefined && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-white/50">Progress:</span>
+                  <span className="text-white font-mono">{tokenStats.progress.toString()}</span>
+                </div>
+              </div>
+            )}
+
+            {tokenStats.reserves && (
+              <div className="bg-white/5 rounded p-3 space-y-1.5">
+                <p className="text-xs text-white/40 font-medium mb-2">Reserves</p>
+                <div className="flex justify-between text-xs">
+                  <span className="text-white/50">Real MON:</span>
+                  <span className="text-white font-mono">{formatEther(tokenStats.reserves.realMonReserve)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-white/50">Real Token:</span>
+                  <span className="text-white font-mono">{formatEther(tokenStats.reserves.realTokenReserve)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-white/50">Target:</span>
+                  <span className="text-white font-mono">{formatEther(tokenStats.reserves.targetTokenAmount)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Quotes */}
+            {(tokenStats.buyQuote || tokenStats.sellQuote) && (
+              <div className="bg-white/5 rounded p-3 space-y-1.5">
+                <p className="text-xs text-white/40 font-medium mb-2">Sample Quotes</p>
+                {tokenStats.buyQuote && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-white/50">0.1 MON buys:</span>
+                    <span className="text-green-400 font-mono">~{formatEther(tokenStats.buyQuote)} tokens</span>
+                  </div>
+                )}
+                {tokenStats.sellQuote && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-white/50">100 tokens sell for:</span>
+                    <span className="text-red-400 font-mono">~{formatEther(tokenStats.sellQuote)} MON</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {tokenStats.availableBuy && (
+              <div className="bg-white/5 rounded p-3 space-y-1.5">
+                <p className="text-xs text-white/40 font-medium mb-2">Available Buy</p>
+                <div className="flex justify-between text-xs">
+                  <span className="text-white/50">Tokens:</span>
+                  <span className="text-white font-mono">{formatEther(tokenStats.availableBuy.availableBuyToken)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-white/50">Required MON:</span>
+                  <span className="text-white font-mono">{formatEther(tokenStats.availableBuy.requiredMonAmount)}</span>
+                </div>
+              </div>
+            )}
+
+            {statsError && (
+              <p className="text-xs text-red-400">{statsError}</p>
+            )}
+
+            {/* Actions */}
+            <div className="space-y-2">
+              <button
+                onClick={loadTokenStats}
+                disabled={statsLoading}
+                className="w-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-400/50 text-white text-sm px-4 py-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {statsLoading ? 'Loading Stats...' : 'Refresh Stats'}
+              </button>
+
+              {nadfunUrl && (
+                <a
+                  href={nadfunUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-300 text-sm px-4 py-2 rounded transition-colors font-medium"
+                >
+                  Open on Nad.fun
+                  <span className="text-purple-400">↗</span>
+                </a>
+              )}
+
+              {explorerTokenUrl && (
+                <a
+                  href={explorerTokenUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-400/50 text-white/70 text-xs px-3 py-2 rounded transition-colors"
+                >
+                  View Token on Explorer
+                  <span className="text-white/40">↗</span>
+                </a>
+              )}
+            </div>
           </div>
         ) : (
           <p className="text-white/50 text-sm">

@@ -87,7 +87,7 @@ export function useNadfunTokenImage(token?: `0x${string}`) {
                   break;
                 }
               }
-            } catch (decodeErr) {
+            } catch {
               // Skip malformed logs
               continue;
             }
