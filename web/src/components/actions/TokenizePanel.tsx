@@ -106,11 +106,13 @@ export function TokenizePanel({
   botToken, 
   isCreator,
   botMetadata,
+  onMarketCapChange,
 }: { 
   botId: bigint; 
   botToken?: `0x${string}`; 
   isCreator: boolean;
   botMetadata?: Record<string, unknown> | null;
+  onMarketCapChange?: (marketCapMon: bigint | null, loading: boolean) => void;
 }) {
   const { address } = useAccount();
   const publicClient = usePublicClient();
@@ -200,6 +202,7 @@ export function TokenizePanel({
     setStatsLoading(true);
     setStatsError('');
     setMarketCapLoading(true);
+    onMarketCapChange?.(marketCapMon, true);
     try {
       const [progress, flags, curves] = await Promise.all([
         getProgress(publicClient, botToken).catch(() => null),
@@ -232,9 +235,11 @@ export function TokenizePanel({
       try {
         const mcap = await getMarketCapMon(publicClient, botToken);
         setMarketCapMon(mcap.marketCapMon);
+        onMarketCapChange?.(mcap.marketCapMon, false);
       } catch (err) {
         console.error('Failed to load market cap:', err);
         setMarketCapMon(null);
+        onMarketCapChange?.(null, false);
       }
     } catch (err) {
       console.error('Failed to load token stats:', err);
@@ -244,6 +249,19 @@ export function TokenizePanel({
       setMarketCapLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!botToken) {
+      onMarketCapChange?.(null, false);
+    }
+  }, [botToken, onMarketCapChange]);
+
+  useEffect(() => {
+    if (!botToken || !publicClient) return;
+    loadTokenStats();
+    // Intentionally keyed to token/client changes for initial status hydration.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [botToken, publicClient]);
 
   // Helper to set formatted error
   const setFormattedError = useCallback((err: unknown) => {

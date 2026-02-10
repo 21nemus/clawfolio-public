@@ -10,8 +10,6 @@ import { useBotToken } from '@/hooks/useBotToken';
 import { useAgentAvatar } from '@/hooks/useAgentAvatar';
 import { EventTimeline } from '@/components/EventTimeline';
 import { AddressLink } from '@/components/AddressLink';
-import { TxLink } from '@/components/TxLink';
-import { formatTokenAmount } from '@/lib/format';
 import { useAccount } from 'wagmi';
 import { PauseControl } from '@/components/actions/PauseControl';
 import { LifecycleControl } from '@/components/actions/LifecycleControl';
@@ -19,7 +17,6 @@ import { DepositControl } from '@/components/actions/DepositControl';
 import { WithdrawControl } from '@/components/actions/WithdrawControl';
 import { TokenizePanel } from '@/components/actions/TokenizePanel';
 import { MoltbookPostPanel } from '@/components/actions/MoltbookPostPanel';
-import { PerformancePanel } from '@/components/PerformancePanel';
 import { PostsFeed } from '@/components/PostsFeed';
 import { StatusChip } from '@/components/StatusChip';
 import { CopyButton } from '@/components/CopyButton';
@@ -30,6 +27,7 @@ import { loadConfig } from '@/lib/config';
 import { uploadImage } from '@/lib/nadfun/client';
 import { setAgentImageOverride } from '@/lib/agentImageOverride';
 import { getRunnerBotPerf, getRunnerBotTrades, getRunnerHealth, RunnerPerf, RunnerTrade } from '@/lib/runnerClient';
+import { formatEther } from 'viem';
 
 export default function BotDetailPage() {
   const params = useParams();
@@ -70,6 +68,8 @@ export default function BotDetailPage() {
   const [imageUploadSuccess, setImageUploadSuccess] = useState(false);
   const [runnerPerf, setRunnerPerf] = useState<RunnerPerf | null>(null);
   const [runnerTrades, setRunnerTrades] = useState<RunnerTrade[]>([]);
+  const [marketCapMon, setMarketCapMon] = useState<bigint | null>(null);
+  const [marketCapLoading, setMarketCapLoading] = useState(false);
   const [runnerStatus, setRunnerStatus] = useState<'unconfigured' | 'online' | 'offline' | 'loading'>(
     appConfig.runnerBaseUrl ? 'loading' : 'unconfigured'
   );
@@ -352,10 +352,11 @@ export default function BotDetailPage() {
     );
   }
 
-  // Derive last activity from events
-  const lastActivity = events && events.length > 0 ? events[0] : null;
   const latestRunner = runnerPerf?.latest ?? null;
   const agentDisplayName = metadata?.name ? metadata.name as string : `Agent #${id}`;
+  const formattedMarketCap = marketCapMon !== null
+    ? `${Number(formatEther(marketCapMon)).toLocaleString(undefined, { maximumFractionDigits: 4 })} MON`
+    : '-';
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -364,16 +365,16 @@ export default function BotDetailPage() {
       ) : details ? (
         <>
           {/* Profile Header */}
-          <div className="mb-10 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-8">
-            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
+          <div className="mb-10 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-8 lg:p-10">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 lg:gap-10">
               {/* Left: Bot Identity */}
-              <div className="flex gap-5 flex-1">
+              <div className="flex gap-6 lg:gap-7 flex-1 min-w-0">
                 {avatarUrl && (
                   <div className="relative">
                     <img
                       src={avatarUrl}
                       alt="Agent avatar"
-                      className="w-32 h-32 object-cover rounded-lg border border-white/20 flex-shrink-0"
+                      className="w-40 h-40 lg:w-44 lg:h-44 object-cover rounded-xl border border-white/20 flex-shrink-0"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
                       }}
@@ -386,7 +387,7 @@ export default function BotDetailPage() {
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-4xl font-bold mb-2 leading-tight">
+                  <h1 className="text-4xl lg:text-5xl font-bold mb-2 leading-tight">
                     {agentDisplayName}
                   </h1>
                   {metadata?.handle ? (
@@ -406,7 +407,7 @@ export default function BotDetailPage() {
                       </a>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-2 mb-3">
+                  <div className="flex flex-wrap gap-2 mb-4">
                     <StatusChip
                       label={LIFECYCLE_STATES[details.lifecycleState as keyof typeof LIFECYCLE_STATES]}
                       variant="info"
@@ -425,7 +426,7 @@ export default function BotDetailPage() {
                   )}
                 </div>
                 {metadata && (metadata.website || metadata.twitter) ? (
-                  <div className="mt-3 flex items-center gap-2">
+                  <div className="mt-1 flex items-center gap-2">
                     {metadata.website && typeof metadata.website === 'string' ? (
                       <a
                         href={metadata.website}
@@ -455,8 +456,8 @@ export default function BotDetailPage() {
               </div>
 
               {/* Right: Runner Performance */}
-              <div className="lg:w-[420px] w-full bg-white/[0.03] rounded-xl border border-white/10 p-5">
-                <h3 className="text-2xl font-bold mb-2 text-white">Performance ({agentDisplayName})</h3>
+              <div className="lg:w-[440px] w-full bg-white/[0.03] rounded-xl border border-white/10 p-5">
+                <h3 className="text-2xl font-bold mb-2 text-white">Performance Dashboard</h3>
                 <p className="text-xs uppercase tracking-wide text-white/40 font-medium mb-4">Mode: Simulation</p>
                 {runnerStatus === 'unconfigured' && (
                   <p className="text-white/40 text-sm">Runner not configured.</p>
@@ -481,9 +482,9 @@ export default function BotDetailPage() {
                         </p>
                       </div>
                       <div className="bg-white/[0.03] rounded-lg p-3">
-                        <p className="text-xs text-white/40 mb-1">PnL %</p>
-                        <p className={`text-xl font-bold ${latestRunner.pnlPct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {latestRunner.pnlPct >= 0 ? '+' : ''}{latestRunner.pnlPct.toFixed(2)}%
+                        <p className="text-xs text-white/40 mb-1">Market Cap</p>
+                        <p className="text-lg font-bold text-white truncate" title={formattedMarketCap}>
+                          {marketCapLoading ? 'Loading...' : formattedMarketCap}
                         </p>
                       </div>
                       <div className="bg-white/[0.03] rounded-lg p-3">
@@ -556,89 +557,6 @@ export default function BotDetailPage() {
                 </div>
               )}
 
-              {/* Onchain Proof - PRIMARY */}
-              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-8">
-                <h3 className="text-2xl font-bold mb-6 text-white">Onchain Proof</h3>
-                
-                <div className="space-y-6">
-                  {/* Creation Group */}
-                  <div>
-                    <h4 className="text-xs uppercase tracking-wide text-white/40 font-medium mb-4">Creation</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-xs text-white/50 min-w-[100px]">Transaction</span>
-                        {bot.transactionHash !== '0x0000000000000000000000000000000000000000000000000000000000000000' ? (
-                          <div className="flex items-center gap-2 flex-1 justify-end">
-                            <TxLink hash={bot.transactionHash} />
-                            <CopyButton text={bot.transactionHash} label="tx" />
-                          </div>
-                        ) : (
-                          <span className="text-white/40 text-sm text-right">Not available</span>
-                        )}
-                      </div>
-                      {bot.transactionHash !== '0x0000000000000000000000000000000000000000000000000000000000000000' && (
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="text-xs text-white/50 min-w-[100px]">Block</span>
-                          <span className="text-white font-mono font-semibold">{bot.blockNumber.toString()}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-xs text-white/50 min-w-[100px]">Metadata URI</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-white/60 font-mono text-xs truncate max-w-[200px]">
-                            {bot.metadataURI.slice(0, 30)}...
-                          </span>
-                          <CopyButton text={bot.metadataURI} label="URI" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Runtime Group */}
-                  <div className="pt-4 border-t border-white/5">
-                    <h4 className="text-xs uppercase tracking-wide text-white/40 font-medium mb-4">Runtime</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-xs text-white/50 min-w-[100px]">Creator</span>
-                        <AddressLink address={details.creator} />
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-xs text-white/50 min-w-[100px]">Operator</span>
-                        <AddressLink address={details.operator} />
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-xs text-white/50 min-w-[100px]">Nonce</span>
-                        <span className="text-white text-xl font-bold tabular-nums">{details.nonce.toString()}</span>
-                      </div>
-                      {lastActivity && (
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="text-xs text-white/50 min-w-[100px]">Last Activity</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-white/70 text-xs">{lastActivity.type}</span>
-                            <TxLink hash={lastActivity.transactionHash} />
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-xs text-white/50 min-w-[100px]">Max Trade</span>
-                        <span className="text-white/80 font-mono text-sm">{formatTokenAmount(details.riskParams.maxAmountInPerTrade)}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-xs text-white/50 min-w-[100px]">Cooldown</span>
-                        <span className="text-white/80 font-mono text-sm">{details.riskParams.minSecondsBetweenTrades.toString()}s</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Performance Dashboard */}
-              <PerformancePanel 
-                botAccount={bot.botAccount}
-                events={events}
-                explorerAddressUrlPrefix={appConfig.explorerAddressUrlPrefix}
-              />
-
               {/* Trade History (Runner) */}
               <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-8">
                 <h3 className="text-2xl font-bold mb-6 text-white">Trade History</h3>
@@ -697,6 +615,10 @@ export default function BotDetailPage() {
                   botToken={botToken || undefined} 
                   isCreator={!!isCreator}
                   botMetadata={metadata}
+                  onMarketCapChange={(nextMarketCapMon, loading) => {
+                    setMarketCapMon(nextMarketCapMon);
+                    setMarketCapLoading(loading);
+                  }}
                 />
               </div>
 
