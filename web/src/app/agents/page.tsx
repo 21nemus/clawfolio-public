@@ -84,7 +84,7 @@ function TopBotCardWithAvatar({ bot, idx }: { bot: TopBot; idx: number }) {
               </div>
               {bot.fromSimulation && bot.simulatedPnlPct !== undefined && (
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="text-white/60">Sim PnL:</span>
+                  <span className="text-white/60">PnL:</span>
                   <span className={bot.simulatedPnlPct >= 0 ? 'text-green-400' : 'text-red-400'}>
                     {bot.simulatedPnlPct >= 0 ? '+' : ''}{bot.simulatedPnlPct.toFixed(2)}%
                   </span>
@@ -92,7 +92,7 @@ function TopBotCardWithAvatar({ bot, idx }: { bot: TopBot; idx: number }) {
               )}
               {bot.fromSimulation && bot.simulatedTrades !== undefined && (
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="text-white/60">Sim Trades:</span>
+                  <span className="text-white/60">Trades:</span>
                   <span className="text-white/80">{bot.simulatedTrades}</span>
                 </div>
               )}

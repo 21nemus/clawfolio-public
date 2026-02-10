@@ -1,6 +1,6 @@
 import { createPublicClient, http } from 'viem';
 import { RunnerConfig } from './config.js';
-import { RunnerDb, BotStateRow, LeaderboardRow, LatestPerfRow, PerfRow } from './db.js';
+import { RunnerDb, BotStateRow, BotTradeRow, LeaderboardRow, LatestPerfRow, PerfRow } from './db.js';
 import { BotRegistryABI } from './abi/BotRegistry.js';
 import { BotAccountABI } from './abi/BotAccount.js';
 import { ERC20ABI } from './abi/ERC20.js';
@@ -131,7 +131,7 @@ export class RunnerService {
           }
         }
 
-        const [paused, lifecycleState, riskParams, nonce] = await Promise.all([
+        const [paused, lifecycleState, nonce] = await Promise.all([
           retry(() =>
             this.client.readContract({
               address: botAccount,
@@ -150,17 +150,26 @@ export class RunnerService {
             this.client.readContract({
               address: botAccount,
               abi: BotAccountABI,
-              functionName: 'riskParams',
-            })
-          ) as Promise<{ maxAmountInPerTrade: bigint; minSecondsBetweenTrades: bigint }>,
-          retry(() =>
-            this.client.readContract({
-              address: botAccount,
-              abi: BotAccountABI,
               functionName: 'nonce',
             })
           ) as Promise<bigint>,
         ]);
+
+        let maxAmountInPerTradeMon = 1;
+        let minSecondsBetweenTrades = this.config.tradeMinCooldownSeconds;
+        try {
+          const riskParams = await retry(() =>
+            this.client.readContract({
+              address: botAccount,
+              abi: BotAccountABI,
+              functionName: 'riskParams',
+            })
+          ) as { maxAmountInPerTrade: bigint; minSecondsBetweenTrades: bigint };
+          maxAmountInPerTradeMon = Number(riskParams.maxAmountInPerTrade) / 1e18;
+          minSecondsBetweenTrades = Number(riskParams.minSecondsBetweenTrades);
+        } catch {
+          // Some deployments may not expose riskParams; fallback keeps simulation deterministic.
+        }
 
         const previousState = await this.db.get<BotStateRow>(
           `SELECT botId, botAccount, name, handle, hasToken, tokenAddress, tokenSymbol, lifecycleState, paused, cooldownSeconds
@@ -168,7 +177,9 @@ export class RunnerService {
           [String(botId)]
         );
 
-        const cooldownSeconds = Number(riskParams.minSecondsBetweenTrades || 300n);
+        const cooldownSeconds = Number.isFinite(minSecondsBetweenTrades) && minSecondsBetweenTrades > 0
+          ? Math.floor(minSecondsBetweenTrades)
+          : this.config.tradeMinCooldownSeconds;
         await this.db.exec(
           `INSERT INTO bot_state (botId, botAccount, name, handle, hasToken, tokenAddress, tokenSymbol, lifecycleState, paused, cooldownSeconds, updatedTs)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -248,8 +259,7 @@ export class RunnerService {
         const random = mulberry32(hashSeed(`${this.config.chainId}:${botId}:${tickBucket}`));
         const baseSignal = (random() * 2) - 1;
 
-        const maxAmountMon = Number(riskParams.maxAmountInPerTrade) / 1e18;
-        const riskScaleFromAmount = clamp(maxAmountMon / 2, 0.25, 1);
+        const riskScaleFromAmount = clamp(maxAmountInPerTradeMon / 2, 0.25, 1);
         const riskScaleFromCooldown = clamp(300 / Math.max(cooldownSeconds, 1), 0.25, 1);
         const riskScale = clamp((riskScaleFromAmount + riskScaleFromCooldown) / 2, 0.25, 1);
 
@@ -257,26 +267,31 @@ export class RunnerService {
         const deltaPct = clamp(rawDeltaPct, -0.005, 0.005);
         const nextEquity = clamp(previousEquity * (1 + deltaPct), 1, 500);
 
-        const lastDecision = await this.db.get<{ ts: number }>(
-          `SELECT ts FROM bot_decisions WHERE botId = ? ORDER BY ts DESC LIMIT 1`,
+        const lastTrade = await this.db.get<{ ts: number }>(
+          `SELECT ts FROM bot_trades WHERE botId = ? ORDER BY ts DESC, id DESC LIMIT 1`,
           [String(botId)]
         );
-        const cooldownElapsed = !lastDecision || (nowSeconds - lastDecision.ts) >= cooldownSeconds;
+        const cooldownElapsed = !lastTrade || (nowSeconds - lastTrade.ts) >= cooldownSeconds;
 
         let decision = decisionFromSignal(baseSignal);
         let reason = 'No strong signal, hold position.';
         if (decision === 'BUY') reason = 'Positive simulated momentum within risk bounds.';
         if (decision === 'SELL') reason = 'Negative simulated momentum to reduce exposure.';
-        if (!cooldownElapsed && decision !== 'HOLD') {
-          decision = 'HOLD';
-          reason = `Cooldown active (${cooldownSeconds}s), skipping trade.`;
-        }
         if (paused || lifecycleState === 0) {
           decision = 'HOLD';
           reason = paused ? 'Agent paused onchain.' : 'Agent not active yet.';
         }
 
-        const trades = previousTrades + (decision === 'HOLD' ? 0 : 1);
+        const tradeChance = random();
+        const canExecuteTrade = !paused && lifecycleState !== 0 && decision !== 'HOLD' && cooldownElapsed;
+        const shouldTrade = canExecuteTrade && tradeChance < this.config.tradeProb;
+        if (!cooldownElapsed && decision !== 'HOLD') {
+          reason = `Cooldown active (${cooldownSeconds}s), waiting for next window.`;
+        } else if (!shouldTrade && decision !== 'HOLD') {
+          reason = `Signal observed but skipped by deterministic gate (p=${this.config.tradeProb.toFixed(2)}).`;
+        }
+
+        const trades = previousTrades + (shouldTrade ? 1 : 0);
         const pnl = nextEquity - 100.0;
         const pnlPct = pnl;
 
@@ -299,9 +314,36 @@ export class RunnerService {
               deltaPct: Number((deltaPct * 100).toFixed(4)),
               cooldownSeconds,
               riskScale: Number(riskScale.toFixed(4)),
+              cooldownElapsed,
+              tradeProbability: this.config.tradeProb,
+              tradeChance: Number(tradeChance.toFixed(4)),
+              tradeExecuted: shouldTrade,
             }),
           ]
         );
+
+        if (shouldTrade) {
+          const qty = 1 + Math.floor(random() * 10);
+          const drift = (random() - 0.5) * 0.08;
+          const price = clamp(1 + drift, 0.8, 1.2);
+          await this.db.exec(
+            `INSERT INTO bot_trades (botId, ts, side, qty, price, reason, meta)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              String(botId),
+              nowSeconds,
+              decision,
+              qty,
+              Number(price.toFixed(4)),
+              reason,
+              JSON.stringify({
+                signal: Number(baseSignal.toFixed(4)),
+                cooldownSeconds,
+                tickBucket,
+              }),
+            ]
+          );
+        }
 
         indexedBots += 1;
         updatedPerf += 1;
@@ -390,6 +432,17 @@ export class RunnerService {
     );
 
     return { latest: latest ?? null, series: series.reverse() };
+  }
+
+  async getBotTrades(botId: string, limit = 50): Promise<BotTradeRow[]> {
+    return this.db.all<BotTradeRow>(
+      `SELECT id, botId, ts, side, qty, price, reason, meta
+       FROM bot_trades
+       WHERE botId = ?
+       ORDER BY ts DESC, id DESC
+       LIMIT ?`,
+      [botId, limit]
+    );
   }
 }
 

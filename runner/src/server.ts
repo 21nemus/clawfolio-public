@@ -66,6 +66,23 @@ async function main() {
     }
   });
 
+  app.get('/bots/:botId/trades', async (req, res) => {
+    try {
+      const botId = req.params.botId;
+      const rawLimit = Number(req.query.limit ?? '50');
+      const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(500, rawLimit)) : 50;
+      const trades = await service.getBotTrades(botId, limit);
+      res.json({
+        ok: true,
+        botId,
+        order: 'desc',
+        trades,
+      });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: String(error) });
+    }
+  });
+
   app.post('/admin/tick', async (req, res) => {
     if (!config.adminToken) {
       res.status(403).json({ ok: false, error: 'RUNNER_ADMIN_TOKEN not configured' });

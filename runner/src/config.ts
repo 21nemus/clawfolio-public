@@ -18,6 +18,8 @@ export interface RunnerConfig {
   disableLoop: boolean;
   tickIntervalSeconds: number;
   adminToken: string | null;
+  tradeProb: number;
+  tradeMinCooldownSeconds: number;
 }
 
 function getEnv(key: string, defaultValue?: string): string {
@@ -48,6 +50,12 @@ export function loadConfig(): RunnerConfig {
   const disableLoop = getEnv('RUNNER_DISABLE_LOOP', 'false') === 'true';
   const tickIntervalSeconds = parseInt(getEnv('RUNNER_TICK_INTERVAL_SECONDS', '30'), 10);
   const adminToken = getEnv('RUNNER_ADMIN_TOKEN') || null;
+  const tradeProbRaw = Number.parseFloat(getEnv('RUNNER_TRADE_PROB', '0.35'));
+  const tradeProb = Number.isFinite(tradeProbRaw) ? Math.max(0, Math.min(1, tradeProbRaw)) : 0.35;
+  const tradeMinCooldownRaw = Number.parseInt(getEnv('RUNNER_TRADE_MIN_COOLDOWN_SECONDS', '300'), 10);
+  const tradeMinCooldownSeconds = Number.isFinite(tradeMinCooldownRaw)
+    ? Math.max(1, tradeMinCooldownRaw)
+    : 300;
 
   if (quoteMode === 'uniswapV2') {
     const routerAddr = getEnv('RUNNER_QUOTE_ROUTER');
@@ -73,5 +81,7 @@ export function loadConfig(): RunnerConfig {
     disableLoop,
     tickIntervalSeconds,
     adminToken,
+    tradeProb,
+    tradeMinCooldownSeconds,
   };
 }

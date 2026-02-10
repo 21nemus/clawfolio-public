@@ -55,6 +55,17 @@ export interface BotStateRow {
   cooldownSeconds: number | null;
 }
 
+export interface BotTradeRow {
+  id: number;
+  botId: string;
+  ts: number;
+  side: 'BUY' | 'SELL';
+  qty: number;
+  price: number;
+  reason: string;
+  meta: string | null;
+}
+
 function ensureDbDir(path: string) {
   mkdirSync(dirname(path), { recursive: true });
 }
@@ -154,8 +165,19 @@ export class RunnerDb {
         reason TEXT NOT NULL,
         meta TEXT
       )`,
+      `CREATE TABLE IF NOT EXISTS bot_trades (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        botId TEXT NOT NULL,
+        ts INTEGER NOT NULL,
+        side TEXT NOT NULL,
+        qty REAL NOT NULL,
+        price REAL NOT NULL,
+        reason TEXT NOT NULL,
+        meta TEXT
+      )`,
       `CREATE INDEX IF NOT EXISTS idx_bot_perf_bot_ts ON bot_perf(botId, ts DESC)`,
       `CREATE INDEX IF NOT EXISTS idx_bot_decisions_bot_ts ON bot_decisions(botId, ts DESC)`,
+      `CREATE INDEX IF NOT EXISTS idx_bot_trades_bot_ts ON bot_trades(botId, ts DESC)`,
       `CREATE INDEX IF NOT EXISTS idx_bot_state_updated ON bot_state(updatedTs DESC)`,
     ];
 

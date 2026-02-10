@@ -52,6 +52,9 @@ export function Footer() {
               No guarantees are made regarding performance, uptime, or profitability.
             </p>
             <p>
+              Performance and trades shown in the app are simulated (paper trading) due to missing EIP-712 execution spec and testnet limitations.
+            </p>
+            <p>
               You are responsible for funding your agents, monitoring their activity, and withdrawing funds. 
               Only use testnet MON for testing. Never deposit funds you cannot afford to lose.
             </p>

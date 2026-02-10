@@ -29,7 +29,7 @@ import { BOT_REGISTRY_ABI } from '@/lib/abi';
 import { loadConfig } from '@/lib/config';
 import { uploadImage } from '@/lib/nadfun/client';
 import { setAgentImageOverride } from '@/lib/agentImageOverride';
-import { getRunnerBotPerf, getRunnerHealth, RunnerPerf } from '@/lib/runnerClient';
+import { getRunnerBotPerf, getRunnerBotTrades, getRunnerHealth, RunnerPerf, RunnerTrade } from '@/lib/runnerClient';
 
 export default function BotDetailPage() {
   const params = useParams();
@@ -69,6 +69,7 @@ export default function BotDetailPage() {
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
   const [imageUploadSuccess, setImageUploadSuccess] = useState(false);
   const [runnerPerf, setRunnerPerf] = useState<RunnerPerf | null>(null);
+  const [runnerTrades, setRunnerTrades] = useState<RunnerTrade[]>([]);
   const [runnerStatus, setRunnerStatus] = useState<'unconfigured' | 'online' | 'offline' | 'loading'>(
     appConfig.runnerBaseUrl ? 'loading' : 'unconfigured'
   );
@@ -240,17 +241,20 @@ export default function BotDetailPage() {
 
     const fetchRunner = async () => {
       setRunnerStatus('loading');
-      const [healthResult, perfResult] = await Promise.all([
+      const [healthResult, perfResult, tradesResult] = await Promise.all([
         getRunnerHealth(baseUrl),
         getRunnerBotPerf(baseUrl, id),
+        getRunnerBotTrades(baseUrl, id, 50),
       ]);
       if (cancelled) return;
-      if (healthResult.ok && perfResult.ok && perfResult.data) {
+      if (healthResult.ok && perfResult.ok && perfResult.data && tradesResult.ok && tradesResult.data) {
         setRunnerStatus('online');
         setRunnerPerf(perfResult.data);
+        setRunnerTrades(tradesResult.data.trades);
       } else {
         setRunnerStatus('offline');
         setRunnerPerf(null);
+        setRunnerTrades([]);
       }
     };
 
@@ -351,6 +355,7 @@ export default function BotDetailPage() {
   // Derive last activity from events
   const lastActivity = events && events.length > 0 ? events[0] : null;
   const latestRunner = runnerPerf?.latest ?? null;
+  const agentDisplayName = metadata?.name ? metadata.name as string : `Agent #${id}`;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -362,12 +367,12 @@ export default function BotDetailPage() {
           <div className="mb-10 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-8">
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8">
               {/* Left: Bot Identity */}
-              <div className="flex gap-5">
-                {avatarUrl ? (
+              <div className="flex gap-5 flex-1">
+                {avatarUrl && (
                   <div className="relative">
-                    <img 
-                      src={avatarUrl} 
-                      alt="Agent avatar" 
+                    <img
+                      src={avatarUrl}
+                      alt="Agent avatar"
                       className="w-32 h-32 object-cover rounded-lg border border-white/20 flex-shrink-0"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
@@ -379,10 +384,10 @@ export default function BotDetailPage() {
                       </div>
                     )}
                   </div>
-                ) : null}
-                <div className="flex-1">
+                )}
+                <div className="flex-1 min-w-0">
                   <h1 className="text-4xl font-bold mb-2 leading-tight">
-                    {metadata?.name ? metadata.name as string : `Bot #${bot.botId.toString()}`}
+                    {agentDisplayName}
                   </h1>
                   {metadata?.handle ? (
                     <p className="text-white/50 font-mono text-sm mb-3">{metadata.handle as string}</p>
@@ -401,6 +406,23 @@ export default function BotDetailPage() {
                       </a>
                     )}
                   </div>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <StatusChip
+                      label={LIFECYCLE_STATES[details.lifecycleState as keyof typeof LIFECYCLE_STATES]}
+                      variant="info"
+                    />
+                    <StatusChip
+                      label={details.paused ? 'Paused' : 'Active'}
+                      variant={details.paused ? 'warning' : 'success'}
+                    />
+                    <StatusChip
+                      label={botToken ? 'Token Launched' : 'No Token'}
+                      variant={botToken ? 'success' : 'default'}
+                    />
+                  </div>
+                  {runnerStatus === 'offline' && (
+                    <p className="text-xs text-yellow-400">Runner offline</p>
+                  )}
                 </div>
                 {metadata && (metadata.website || metadata.twitter) ? (
                   <div className="mt-3 flex items-center gap-2">
@@ -432,20 +454,51 @@ export default function BotDetailPage() {
                 ) : null}
               </div>
 
-              {/* Right: Status Pills */}
-              <div className="flex flex-wrap gap-2 lg:justify-end">
-                <StatusChip 
-                  label={LIFECYCLE_STATES[details.lifecycleState as keyof typeof LIFECYCLE_STATES]}
-                  variant="info"
-                />
-                <StatusChip 
-                  label={details.paused ? 'Paused' : 'Active'} 
-                  variant={details.paused ? 'warning' : 'success'} 
-                />
-                <StatusChip 
-                  label={botToken ? 'Token Launched' : 'No Token'} 
-                  variant={botToken ? 'success' : 'default'} 
-                />
+              {/* Right: Runner Performance */}
+              <div className="lg:w-[420px] w-full bg-white/[0.03] rounded-xl border border-white/10 p-5">
+                <h3 className="text-2xl font-bold mb-2 text-white">Performance ({agentDisplayName})</h3>
+                <p className="text-xs uppercase tracking-wide text-white/40 font-medium mb-4">Mode: Simulation</p>
+                {runnerStatus === 'unconfigured' && (
+                  <p className="text-white/40 text-sm">Runner not configured.</p>
+                )}
+                {runnerStatus === 'loading' && (
+                  <p className="text-white/50 text-sm">Loading runner data...</p>
+                )}
+                {runnerStatus === 'offline' && (
+                  <p className="text-white/40 text-sm">Runner offline.</p>
+                )}
+                {runnerStatus === 'online' && latestRunner && (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-white/[0.03] rounded-lg p-3">
+                        <p className="text-xs text-white/40 mb-1">Equity</p>
+                        <p className="text-xl font-bold text-white">{latestRunner.equity.toFixed(2)}</p>
+                      </div>
+                      <div className="bg-white/[0.03] rounded-lg p-3">
+                        <p className="text-xs text-white/40 mb-1">PnL</p>
+                        <p className={`text-xl font-bold ${latestRunner.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {latestRunner.pnl >= 0 ? '+' : ''}{latestRunner.pnl.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="bg-white/[0.03] rounded-lg p-3">
+                        <p className="text-xs text-white/40 mb-1">PnL %</p>
+                        <p className={`text-xl font-bold ${latestRunner.pnlPct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {latestRunner.pnlPct >= 0 ? '+' : ''}{latestRunner.pnlPct.toFixed(2)}%
+                        </p>
+                      </div>
+                      <div className="bg-white/[0.03] rounded-lg p-3">
+                        <p className="text-xs text-white/40 mb-1">Trades</p>
+                        <p className="text-xl font-bold text-white">{latestRunner.trades}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-white/40 mt-3">
+                      Last update: {new Date(latestRunner.ts * 1000).toLocaleString()}
+                    </p>
+                  </>
+                )}
+                {runnerStatus === 'online' && !latestRunner && (
+                  <p className="text-white/40 text-sm">No performance snapshots yet.</p>
+                )}
               </div>
             </div>
           </div>
@@ -586,12 +639,9 @@ export default function BotDetailPage() {
                 explorerAddressUrlPrefix={appConfig.explorerAddressUrlPrefix}
               />
 
-              {/* Simulation Runner Performance */}
+              {/* Trade History (Runner) */}
               <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-8">
-                <h3 className="text-2xl font-bold mb-3 text-white">Simulated Performance (Runner)</h3>
-                <p className="text-xs uppercase tracking-wide text-white/40 font-medium mb-6">
-                  Mode: Simulation
-                </p>
+                <h3 className="text-2xl font-bold mb-6 text-white">Trade History</h3>
                 {runnerStatus === 'unconfigured' && (
                   <p className="text-white/40 text-sm">Runner not configured.</p>
                 )}
@@ -599,36 +649,38 @@ export default function BotDetailPage() {
                   <p className="text-white/50 text-sm">Loading runner data...</p>
                 )}
                 {runnerStatus === 'offline' && (
-                  <p className="text-yellow-400 text-sm">Runner offline.</p>
+                  <p className="text-white/40 text-sm">Runner offline.</p>
                 )}
-                {runnerStatus === 'online' && latestRunner && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white/[0.03] rounded-lg p-4">
-                      <p className="text-xs text-white/40 mb-1">Equity</p>
-                      <p className="text-xl font-bold text-white">{latestRunner.equity.toFixed(2)}</p>
-                    </div>
-                    <div className="bg-white/[0.03] rounded-lg p-4">
-                      <p className="text-xs text-white/40 mb-1">PnL</p>
-                      <p className={`text-xl font-bold ${latestRunner.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {latestRunner.pnl >= 0 ? '+' : ''}{latestRunner.pnl.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="bg-white/[0.03] rounded-lg p-4">
-                      <p className="text-xs text-white/40 mb-1">PnL %</p>
-                      <p className={`text-xl font-bold ${latestRunner.pnlPct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {latestRunner.pnlPct >= 0 ? '+' : ''}{latestRunner.pnlPct.toFixed(2)}%
-                      </p>
-                    </div>
-                    <div className="bg-white/[0.03] rounded-lg p-4">
-                      <p className="text-xs text-white/40 mb-1">Trades</p>
-                      <p className="text-xl font-bold text-white">{latestRunner.trades}</p>
-                    </div>
+                {runnerStatus === 'online' && runnerTrades.length === 0 && (
+                  <p className="text-white/40 text-sm">No trades yet.</p>
+                )}
+                {runnerStatus === 'online' && runnerTrades.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10 text-left text-white/50">
+                          <th className="py-2 pr-3 font-medium">Time</th>
+                          <th className="py-2 pr-3 font-medium">Side</th>
+                          <th className="py-2 pr-3 font-medium">Qty</th>
+                          <th className="py-2 pr-3 font-medium">Price</th>
+                          <th className="py-2 font-medium">Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {runnerTrades.map((trade) => (
+                          <tr key={trade.id} className="border-b border-white/5">
+                            <td className="py-2 pr-3 text-white/70">{new Date(trade.ts * 1000).toLocaleString()}</td>
+                            <td className={`py-2 pr-3 font-semibold ${trade.side === 'BUY' ? 'text-green-400' : 'text-red-400'}`}>
+                              {trade.side}
+                            </td>
+                            <td className="py-2 pr-3 text-white/80">{trade.qty.toFixed(2)}</td>
+                            <td className="py-2 pr-3 text-white/80">{trade.price.toFixed(4)}</td>
+                            <td className="py-2 text-white/60">{trade.reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                )}
-                {runnerStatus === 'online' && latestRunner && (
-                  <p className="text-xs text-white/40 mt-4">
-                    Last update: {new Date(latestRunner.ts * 1000).toLocaleString()}
-                  </p>
                 )}
               </div>
 
