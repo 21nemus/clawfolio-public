@@ -13,6 +13,11 @@ export interface RunnerConfig {
   quoteMode: 'none' | 'uniswapV2';
   quoteRouter: `0x${string}` | null;
   quoteBaseToken: string;
+  port: number;
+  dbPath: string;
+  disableLoop: boolean;
+  tickIntervalSeconds: number;
+  adminToken: string | null;
 }
 
 function getEnv(key: string, defaultValue?: string): string {
@@ -38,6 +43,11 @@ export function loadConfig(): RunnerConfig {
   const quoteMode = getEnv('RUNNER_QUOTE_MODE', 'none') as 'none' | 'uniswapV2';
   let quoteRouter: `0x${string}` | null = null;
   const quoteBaseToken = getEnv('RUNNER_QUOTE_BASE_TOKEN', 'USDC');
+  const port = parseInt(getEnv('RUNNER_PORT', '8787'), 10);
+  const dbPath = getEnv('RUNNER_DB_PATH', `${outDir}/runner.db`);
+  const disableLoop = getEnv('RUNNER_DISABLE_LOOP', 'false') === 'true';
+  const tickIntervalSeconds = parseInt(getEnv('RUNNER_TICK_INTERVAL_SECONDS', '30'), 10);
+  const adminToken = getEnv('RUNNER_ADMIN_TOKEN') || null;
 
   if (quoteMode === 'uniswapV2') {
     const routerAddr = getEnv('RUNNER_QUOTE_ROUTER');
@@ -58,5 +68,10 @@ export function loadConfig(): RunnerConfig {
     quoteMode,
     quoteRouter,
     quoteBaseToken,
+    port,
+    dbPath,
+    disableLoop,
+    tickIntervalSeconds,
+    adminToken,
   };
 }

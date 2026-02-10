@@ -5,6 +5,8 @@ import { indexAllBots } from './indexer.js';
 import { generateMetrics } from './metrics.js';
 import { runBot, runAllBots } from './runner.js';
 import { generateLeaderboard } from './leaderboard.js';
+import { RunnerDb } from './db.js';
+import { RunnerService } from './simulation.js';
 
 const command = process.argv[2];
 const args = process.argv.slice(3);
@@ -56,12 +58,22 @@ async function main() {
         generateLeaderboard(config);
         break;
 
+      case 'tick': {
+        const db = await RunnerDb.init(config);
+        const service = new RunnerService(config, db);
+        const summary = await service.tick();
+        await db.close();
+        console.log('Tick summary:', summary);
+        break;
+      }
+
       default:
         console.log('Available commands:');
         console.log('  npm run index      - Index bot events and generate metrics');
         console.log('  npm run run -- --botId <id>  - Dry-run single bot');
         console.log('  npm run run-all    - Dry-run all bots');
         console.log('  npm run leaderboard - Generate leaderboard');
+        console.log('  npx tsx src/cli.ts tick - Run one simulation tick');
         process.exit(1);
     }
   } catch (error) {

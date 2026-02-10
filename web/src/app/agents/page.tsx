@@ -4,10 +4,10 @@ import { useAllBots, BotWithMetadata } from '@/hooks/useAllBots';
 import { useState, useEffect } from 'react';
 import { publicClient } from '@/lib/clients';
 import { BotAccountABI } from '@/abi/BotAccount';
-import { formatEther } from 'viem';
 import Link from 'next/link';
 import { useAgentAvatar } from '@/hooks/useAgentAvatar';
 import { loadConfig } from '@/lib/config';
+import { getRunnerLeaderboard } from '@/lib/runnerClient';
 
 const LIFECYCLE_STATES = {
   0: 'Draft',
@@ -21,6 +21,9 @@ interface TopBot extends BotWithMetadata {
   nonce?: bigint;
   lifecycleState?: number;
   paused?: boolean;
+  simulatedPnlPct?: number;
+  simulatedTrades?: number;
+  fromSimulation?: boolean;
 }
 
 function TopBotCardWithAvatar({ bot, idx }: { bot: TopBot; idx: number }) {
@@ -79,6 +82,20 @@ function TopBotCardWithAvatar({ bot, idx }: { bot: TopBot; idx: number }) {
                 <span className="text-white/60">Agent #</span>
                 <span className="text-white font-medium">{bot.botId.toString()}</span>
               </div>
+              {bot.fromSimulation && bot.simulatedPnlPct !== undefined && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-white/60">Sim PnL:</span>
+                  <span className={bot.simulatedPnlPct >= 0 ? 'text-green-400' : 'text-red-400'}>
+                    {bot.simulatedPnlPct >= 0 ? '+' : ''}{bot.simulatedPnlPct.toFixed(2)}%
+                  </span>
+                </div>
+              )}
+              {bot.fromSimulation && bot.simulatedTrades !== undefined && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-white/60">Sim Trades:</span>
+                  <span className="text-white/80">{bot.simulatedTrades}</span>
+                </div>
+              )}
               {bot.lifecycleState !== undefined && (
                 <div className="flex items-center gap-2 text-xs">
                   <span className="text-white/60">State:</span>
@@ -164,12 +181,14 @@ function AllBotCardWithAvatar({ bot }: { bot: BotWithMetadata }) {
 
 export default function BotsPage() {
   const { bots, loading, error } = useAllBots();
+  const appConfig = loadConfig();
   const [searchQuery, setSearchQuery] = useState('');
   const [includeArchived, setIncludeArchived] = useState(false);
   const [tokenFilter, setTokenFilter] = useState<'all' | 'token' | 'noToken'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'marketCap' | 'activity'>('newest');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [topBots, setTopBots] = useState<TopBot[]>([]);
+  const [runnerOnline, setRunnerOnline] = useState<boolean>(false);
 
   // Filter bots based on search, archive status, and token filter
   let filteredBots = bots.filter((bot) => {
@@ -217,6 +236,35 @@ export default function BotsPage() {
 
     const fetchTopBots = async () => {
       try {
+        if (appConfig.runnerBaseUrl) {
+          const runnerResult = await getRunnerLeaderboard(appConfig.runnerBaseUrl, 6);
+          if (runnerResult.ok && runnerResult.data?.bots?.length) {
+            const mapped: TopBot[] = runnerResult.data.bots
+              .map((entry) => {
+                const matched = bots.find((b) => b.botId.toString() === entry.botId);
+                if (!matched) return null;
+                return {
+                  ...matched,
+                  simulatedPnlPct: entry.pnlPct,
+                  simulatedTrades: entry.trades,
+                  fromSimulation: true,
+                } as TopBot;
+              })
+              .filter((x): x is TopBot => x !== null)
+              .filter((bot) => includeArchived || bot.lifecycleState !== 4)
+              .slice(0, 6);
+
+            if (!cancelled) {
+              setTopBots(mapped);
+              setRunnerOnline(true);
+            }
+            return;
+          }
+          if (!cancelled) {
+            setRunnerOnline(false);
+          }
+        }
+
         // Filter out archived agents first, then fetch nonce for first 50 bots (or all if less)
         const activeBotsToRank = bots
           .filter((bot) => includeArchived || bot.lifecycleState !== 4)
@@ -328,7 +376,7 @@ export default function BotsPage() {
     return () => {
       cancelled = true;
     };
-  }, [bots, loading, includeArchived]);
+  }, [bots, loading, includeArchived, appConfig.runnerBaseUrl]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -419,7 +467,9 @@ export default function BotsPage() {
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
                 <span>🏆</span>
                 <span>Leader Board</span>
-                <span className="text-sm text-white/40 font-normal">(by activity)</span>
+                <span className="text-sm text-white/40 font-normal">
+                  {runnerOnline ? '(simulation)' : '(by activity)'}
+                </span>
               </h2>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {topBots.map((bot, idx) => (

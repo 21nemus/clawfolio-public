@@ -29,6 +29,7 @@ import { BOT_REGISTRY_ABI } from '@/lib/abi';
 import { loadConfig } from '@/lib/config';
 import { uploadImage } from '@/lib/nadfun/client';
 import { setAgentImageOverride } from '@/lib/agentImageOverride';
+import { getRunnerBotPerf, getRunnerHealth, RunnerPerf } from '@/lib/runnerClient';
 
 export default function BotDetailPage() {
   const params = useParams();
@@ -67,6 +68,10 @@ export default function BotDetailPage() {
   const [imageUploading, setImageUploading] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
   const [imageUploadSuccess, setImageUploadSuccess] = useState(false);
+  const [runnerPerf, setRunnerPerf] = useState<RunnerPerf | null>(null);
+  const [runnerStatus, setRunnerStatus] = useState<'unconfigured' | 'online' | 'offline' | 'loading'>(
+    appConfig.runnerBaseUrl ? 'loading' : 'unconfigured'
+  );
 
   // Check logs first (fast path if bot is recent)
   useEffect(() => {
@@ -222,6 +227,41 @@ export default function BotDetailPage() {
     }
   }, [bot]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const baseUrl = appConfig.runnerBaseUrl;
+    if (!baseUrl) {
+      setRunnerStatus('unconfigured');
+      return;
+    }
+    if (!isValidId) {
+      return;
+    }
+
+    const fetchRunner = async () => {
+      setRunnerStatus('loading');
+      const [healthResult, perfResult] = await Promise.all([
+        getRunnerHealth(baseUrl),
+        getRunnerBotPerf(baseUrl, id),
+      ]);
+      if (cancelled) return;
+      if (healthResult.ok && perfResult.ok && perfResult.data) {
+        setRunnerStatus('online');
+        setRunnerPerf(perfResult.data);
+      } else {
+        setRunnerStatus('offline');
+        setRunnerPerf(null);
+      }
+    };
+
+    fetchRunner();
+    const timer = setInterval(fetchRunner, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [appConfig.runnerBaseUrl, id, isValidId]);
+
   // Update creator/operator from details when available (for direct lookup case)
   useEffect(() => {
     if (bot && details && bot.creator === '0x0000000000000000000000000000000000000000') {
@@ -310,6 +350,7 @@ export default function BotDetailPage() {
 
   // Derive last activity from events
   const lastActivity = events && events.length > 0 ? events[0] : null;
+  const latestRunner = runnerPerf?.latest ?? null;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -544,6 +585,52 @@ export default function BotDetailPage() {
                 events={events}
                 explorerAddressUrlPrefix={appConfig.explorerAddressUrlPrefix}
               />
+
+              {/* Simulation Runner Performance */}
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-8">
+                <h3 className="text-2xl font-bold mb-3 text-white">Simulated Performance (Runner)</h3>
+                <p className="text-xs uppercase tracking-wide text-white/40 font-medium mb-6">
+                  Mode: Simulation
+                </p>
+                {runnerStatus === 'unconfigured' && (
+                  <p className="text-white/40 text-sm">Runner not configured.</p>
+                )}
+                {runnerStatus === 'loading' && (
+                  <p className="text-white/50 text-sm">Loading runner data...</p>
+                )}
+                {runnerStatus === 'offline' && (
+                  <p className="text-yellow-400 text-sm">Runner offline.</p>
+                )}
+                {runnerStatus === 'online' && latestRunner && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white/[0.03] rounded-lg p-4">
+                      <p className="text-xs text-white/40 mb-1">Equity</p>
+                      <p className="text-xl font-bold text-white">{latestRunner.equity.toFixed(2)}</p>
+                    </div>
+                    <div className="bg-white/[0.03] rounded-lg p-4">
+                      <p className="text-xs text-white/40 mb-1">PnL</p>
+                      <p className={`text-xl font-bold ${latestRunner.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {latestRunner.pnl >= 0 ? '+' : ''}{latestRunner.pnl.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="bg-white/[0.03] rounded-lg p-4">
+                      <p className="text-xs text-white/40 mb-1">PnL %</p>
+                      <p className={`text-xl font-bold ${latestRunner.pnlPct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {latestRunner.pnlPct >= 0 ? '+' : ''}{latestRunner.pnlPct.toFixed(2)}%
+                      </p>
+                    </div>
+                    <div className="bg-white/[0.03] rounded-lg p-4">
+                      <p className="text-xs text-white/40 mb-1">Trades</p>
+                      <p className="text-xl font-bold text-white">{latestRunner.trades}</p>
+                    </div>
+                  </div>
+                )}
+                {runnerStatus === 'online' && latestRunner && (
+                  <p className="text-xs text-white/40 mt-4">
+                    Last update: {new Date(latestRunner.ts * 1000).toLocaleString()}
+                  </p>
+                )}
+              </div>
 
               {/* Activity Timeline */}
               <EventTimeline events={events} loading={eventsLoading} />

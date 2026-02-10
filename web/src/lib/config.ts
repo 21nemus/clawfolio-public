@@ -12,6 +12,7 @@ export interface AppConfig {
   explorerBlockUrlPrefix: string;
   startBlock: bigint;
   openclawBaseUrl: string | null;
+  runnerBaseUrl: string | null;
   moltbookEnabled: boolean;
   moltbookApiBase: string;
   moltbookSubmolt: string;
@@ -49,6 +50,8 @@ function getEnv(key: string, defaultValue?: string): string | undefined {
       return process.env.NEXT_PUBLIC_START_BLOCK || defaultValue;
     case 'NEXT_PUBLIC_OPENCLAW_BASE_URL':
       return process.env.NEXT_PUBLIC_OPENCLAW_BASE_URL || defaultValue;
+    case 'NEXT_PUBLIC_RUNNER_BASE_URL':
+      return process.env.NEXT_PUBLIC_RUNNER_BASE_URL || defaultValue;
     case 'NEXT_PUBLIC_MOLTBOOK_ENABLED':
       return process.env.NEXT_PUBLIC_MOLTBOOK_ENABLED || defaultValue;
     case 'NEXT_PUBLIC_MOLTBOOK_API_BASE':
@@ -90,6 +93,7 @@ export function loadConfig(): AppConfig {
   const explorerBlockUrlPrefix = getEnv('NEXT_PUBLIC_EXPLORER_BLOCK_URL_PREFIX', 'https://monadvision.com/block/') || 'https://monadvision.com/block/';
   const startBlock = BigInt(getEnv('NEXT_PUBLIC_START_BLOCK', '0') || '0');
   const openclawBaseUrl = getEnv('NEXT_PUBLIC_OPENCLAW_BASE_URL') || null;
+  const runnerBaseUrl = getEnv('NEXT_PUBLIC_RUNNER_BASE_URL') || null;
   const moltbookEnabled = getEnv('NEXT_PUBLIC_MOLTBOOK_ENABLED', 'false') === 'true';
   const moltbookApiBase = getEnv('NEXT_PUBLIC_MOLTBOOK_API_BASE', 'https://www.moltbook.com/api/v1') || 'https://www.moltbook.com/api/v1';
   const moltbookSubmolt = getEnv('NEXT_PUBLIC_MOLTBOOK_SUBMOLT', 'moltiversehackathon') || 'moltiversehackathon';
@@ -106,6 +110,7 @@ export function loadConfig(): AppConfig {
     explorerBlockUrlPrefix,
     startBlock,
     openclawBaseUrl,
+    runnerBaseUrl,
     moltbookEnabled,
     moltbookApiBase,
     moltbookSubmolt,

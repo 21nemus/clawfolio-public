@@ -1,175 +1,127 @@
 # Clawfolio Runner
 
-Testnet indexer and dry-run execution runner for Clawfolio autonomous trading bots.
+External simulation backend for Clawfolio (Scenario B: UI != Brain).
 
-## Overview
+This service runs separately from the Vercel web app, polls onchain bot state, writes simulation snapshots to SQLite, and exposes a read-only HTTP API for leaderboard/performance rendering.
 
-This package provides:
+## What it provides
 
-1. **Event Indexer**: Fetches and stores bot events from BotRegistry and BotAccount contracts
-2. **Metrics Engine**: Computes performance metrics (balances, flows, trade stats, optional PnL estimates)
-3. **Dry-Run Execution**: Reads strategy prompts and simulates trading decisions (no real trades)
-4. **Leaderboard**: Ranks bots by performance metrics
+- Deterministic simulation loop (no LLM calls, no live execution)
+- SQLite persistence for state, decisions, performance snapshots
+- Read-only API:
+  - `GET /health`
+  - `GET /leaderboard`
+  - `GET /bots/:botId/perf`
+- Optional protected admin tick endpoint:
+  - `POST /admin/tick` with `X-Runner-Admin-Token`
 
-## Setup
+## Safety model
 
-### Prerequisites
+- Simulation-only (no EIP-712 execution changes)
+- No key custody in web app
+- Runner can run private behind reverse proxy/Tailscale
+- Web app consumes read-only API
 
-- Node.js 20+
-- Access to Monad testnet RPC
-
-### Installation
+## Local development
 
 ```bash
 cd runner
 npm install
 cp .env.example .env
-# Edit .env with your configuration
+# set RUNNER_BOT_REGISTRY, RPC, etc.
+npm run dev:api
 ```
 
-### Environment Configuration
+Health check:
+
+```bash
+curl http://127.0.0.1:8787/health
+```
+
+## Build
+
+```bash
+cd runner
+npm run build
+npm run start:api
+```
+
+## Docker-first deployment (VPS)
+
+1) Prepare env:
+
+```bash
+cd runner
+cp .env.example .env
+```
+
+2) Start service:
+
+```bash
+docker compose up -d --build
+```
+
+3) Logs:
+
+```bash
+docker compose logs -f runner
+```
+
+By default, compose binds to `127.0.0.1:8787` (localhost only). Persisted data lives in `runner/out/` (`runner.db`).
+
+## HTTPS for Vercel consumption
+
+Because Vercel needs a public URL for `NEXT_PUBLIC_RUNNER_BASE_URL`, place a reverse proxy in front of runner:
+
+- Keep runner bound to localhost (`127.0.0.1:8787`)
+- Expose only proxy over HTTPS (domain + TLS)
+- Public routes should be read-only:
+  - `/health`
+  - `/leaderboard`
+  - `/bots/:botId/perf`
+
+Example stack:
+
+- Caddy or nginx on VPS
+- Proxy upstream: `http://127.0.0.1:8787`
+- Optional IP allowlists/rate limiting
+
+## Environment variables
 
 Required:
-- `RUNNER_CHAIN_ID`: Chain ID (10143 for Monad testnet)
-- `RUNNER_RPC_HTTP_URL`: RPC endpoint
-- `RUNNER_BOT_REGISTRY`: Deployed BotRegistry address
 
-Recommended:
-- `RUNNER_START_BLOCK`: Start block for event indexing (reduces RPC load)
-- `RUNNER_OUT_DIR`: Output directory for metrics/leaderboard (default: `out`)
+- `RUNNER_CHAIN_ID` (10143 for Monad testnet)
+- `RUNNER_RPC_HTTP_URL`
+- `RUNNER_BOT_REGISTRY`
 
-Optional (PnL):
-- `RUNNER_QUOTE_MODE`: `none` (default) or `uniswapV2`
-- `RUNNER_QUOTE_ROUTER`: Router address for price quotes
-- `RUNNER_QUOTE_BASE_TOKEN`: Base token for valuation (symbol or address)
+Core:
 
-## Usage
+- `RUNNER_PORT` (default `8787`)
+- `RUNNER_DB_PATH` (default `out/runner.db`)
+- `RUNNER_DISABLE_LOOP` (`true` or `false`)
+- `RUNNER_TICK_INTERVAL_SECONDS` (default `30`)
 
-### Index Bot Events and Generate Metrics
+Optional:
 
-```bash
-npm run index
-```
+- `RUNNER_ADMIN_TOKEN` (required only if using `POST /admin/tick`)
+- `RUNNER_START_BLOCK`
+- `RUNNER_OUT_DIR`
+- `RUNNER_MAX_BOTS`
 
-This will:
-- Fetch all bots from BotRegistry
-- Index events for each bot (chunked to respect RPC limits)
-- Generate metrics JSON files in `out/metrics/<botId>.json`
+## Data and backups
 
-### View Leaderboard
+Primary DB file:
 
-```bash
-npm run leaderboard
-```
+- `runner/out/runner.db`
 
-Displays a ranked table of bots by:
-1. PnL% (if quote mode is enabled)
-2. Trade count (fallback)
+Back up this file regularly for leaderboard/performance continuity.
 
-Also generates `out/leaderboard.json`.
+## Legacy CLI commands
 
-### Dry-Run Single Bot
+Existing commands remain available:
 
-```bash
-npm run run -- --botId 1
-```
+- `npm run index`
+- `npm run run -- --botId <id>`
+- `npm run run-all`
+- `npm run leaderboard`
 
-Loads bot config and strategy prompt, then prints what trading decision would be made (without executing).
-
-### Dry-Run All Bots
-
-```bash
-npm run run-all
-```
-
-Runs dry-run logic for all bots sequentially.
-
-## Output Files
-
-### Metrics: `out/metrics/<botId>.json`
-
-```json
-{
-  "botId": 1,
-  "botAccount": "0x...",
-  "updatedAt": "2026-02-09T...",
-  "paused": false,
-  "lifecycleState": 1,
-  "operator": "0x...",
-  "creator": "0x...",
-  "tradeCount": 5,
-  "lastActivity": {
-    "blockNumber": 12345,
-    "tx": "0x...",
-    "type": "TradeExecuted"
-  },
-  "balances": [...],
-  "flows": [...],
-  "pnl": {
-    "mode": "none",
-    "note": "PnL not available (RUNNER_QUOTE_MODE=none)"
-  }
-}
-```
-
-### Leaderboard: `out/leaderboard.json`
-
-Sorted array of bot summaries with rankings.
-
-## Architecture
-
-### Event Indexing
-
-- Fetches logs using 100-block chunks to respect Monad RPC limits
-- Deduplicates events by `txHash + logIndex`
-- Stores indexed events in `out/index/<botId>.json`
-
-### Metrics Computation
-
-- **Balances**: Native MON + all ERC20 tokens touched by bot
-- **Flows**: Net deposits - withdrawals per token
-- **Trade Stats**: Count, volume, last activity
-- **PnL** (optional): Mark-to-market valuation via onchain quotes
-
-### Execution Model
-
-**Current: DRY-RUN ONLY**
-
-This runner does NOT execute real trades yet. Reasons:
-- EIP-712 TradeIntent typed-data specification is not available in this repo
-- No operator private keys are required for indexing/metrics
-
-When the typed-data spec is available:
-- Add `RUNNER_OPERATOR_PRIVATE_KEY` to `.env`
-- Implement EIP-712 signing in `src/runner.ts`
-- Call `BotAccount.execute()` with signed intent
-
-## Safety Notes
-
-⚠️ **Testnet Only**: This runner is designed for Monad testnet. Never use mainnet keys.
-
-⚠️ **No Secrets in Git**: `.env` is gitignored. Never commit private keys.
-
-⚠️ **Dry-Run Default**: Real trade execution is intentionally disabled until signature spec is available.
-
-## Troubleshooting
-
-### "Failed to fetch logs" or RPC errors
-
-- Check `RUNNER_RPC_HTTP_URL` is accessible
-- Increase `RUNNER_START_BLOCK` to reduce lookback window
-- RPC rate limits may apply; runner uses exponential backoff
-
-### "No bots found"
-
-- Verify `RUNNER_BOT_REGISTRY` address is correct
-- Check that bots have been created onchain
-
-### PnL shows "mode": "none"
-
-- Set `RUNNER_QUOTE_MODE=uniswapV2` and provide `RUNNER_QUOTE_ROUTER`
-- Ensure quote router supports the tokens in bot portfolios
-
-## Contributing
-
-This is a hackathon project. For issues or questions, see the main repo README.

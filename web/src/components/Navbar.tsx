@@ -3,11 +3,37 @@
 import Link from 'next/link';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { loadConfig } from '@/lib/config';
+import { getRunnerHealth } from '@/lib/runnerClient';
 
 export function Navbar() {
   const pathname = usePathname();
+  const appConfig = loadConfig();
+  const [runnerOnline, setRunnerOnline] = useState<boolean | null>(null);
 
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
+
+  useEffect(() => {
+    let cancelled = false;
+    const baseUrl = appConfig.runnerBaseUrl;
+    if (!baseUrl) {
+      setRunnerOnline(null);
+      return;
+    }
+    const poll = async () => {
+      const result = await getRunnerHealth(baseUrl);
+      if (!cancelled) {
+        setRunnerOnline(result.ok && !!result.data?.ok);
+      }
+    };
+    poll();
+    const timer = setInterval(poll, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [appConfig.runnerBaseUrl]);
 
   return (
     <nav className="border-b border-white/10 bg-black/40 backdrop-blur-sm sticky top-0 z-50">
@@ -59,6 +85,18 @@ export function Navbar() {
               >
                 Tokens
               </Link>
+              {appConfig.runnerBaseUrl ? (
+                <span
+                  className={`text-xs px-2 py-1 rounded-full border ${
+                    runnerOnline
+                      ? 'border-green-500/40 text-green-400 bg-green-500/10'
+                      : 'border-yellow-500/30 text-yellow-400 bg-yellow-500/10'
+                  }`}
+                  title="Simulation runner status"
+                >
+                  Runner: {runnerOnline ? 'Online' : 'Offline'}
+                </span>
+              ) : null}
             </div>
           </div>
 

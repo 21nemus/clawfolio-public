@@ -8,13 +8,24 @@
     "index": "tsx src/cli.ts index",
     "run": "tsx src/cli.ts run",
     "run-all": "tsx src/cli.ts run-all",
-    "leaderboard": "tsx src/cli.ts leaderboard"
+    "leaderboard": "tsx src/cli.ts leaderboard",
+    "dev:api": "tsx src/server.ts",
+    "build": "tsc",
+    "start:api": "node dist/server.js"
   },
   "dependencies": {
-    "viem": "^2.45.1",
-    "dotenv": "^16.4.7"
+    "better-sqlite3": "^11.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "viem": "^2.45.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
     "@types/node": "^20.17.10",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"

@@ -21,6 +21,13 @@ export const BotRegistryABI = [
     outputs: [{ name: '', type: 'string' }],
   },
   {
+    type: 'function',
+    name: 'botTokenOf',
+    stateMutability: 'view',
+    inputs: [{ name: '', type: 'uint256' }],
+    outputs: [{ name: '', type: 'address' }],
+  },
+  {
     type: 'event',
     name: 'BotCreated',
     inputs: [
