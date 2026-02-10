@@ -83,6 +83,63 @@ async function main() {
     }
   });
 
+  app.get('/bots/:botId/proposals', async (req, res) => {
+    try {
+      const botId = req.params.botId;
+      const rawLimit = Number(req.query.limit ?? '50');
+      const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(500, rawLimit)) : 50;
+      const proposals = await service.getBotProposals(botId, limit);
+      res.json({
+        ok: true,
+        botId,
+        order: 'desc',
+        proposals,
+      });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: String(error) });
+    }
+  });
+
+  app.post('/bots/:botId/proposals', async (req, res) => {
+    if (!config.connectorToken) {
+      res.status(403).json({ ok: false, error: 'RUNNER_CONNECTOR_TOKEN not configured' });
+      return;
+    }
+    const token = req.header('X-Runner-Connector-Token');
+    if (!token || token !== config.connectorToken) {
+      res.status(401).json({ ok: false, error: 'Unauthorized' });
+      return;
+    }
+    try {
+      const botId = req.params.botId;
+      const { action, qty, price, reason, payload, source, mode } = req.body;
+      
+      if (!action || !['BUY', 'SELL', 'HOLD'].includes(action)) {
+        res.status(400).json({ ok: false, error: 'Invalid action' });
+        return;
+      }
+      if (!reason || typeof reason !== 'string') {
+        res.status(400).json({ ok: false, error: 'Missing reason' });
+        return;
+      }
+
+      const proposalId = await service.createProposal({
+        botId,
+        action,
+        qty,
+        price,
+        reason,
+        payload,
+        source,
+        mode,
+      });
+
+      res.json({ ok: true, botId, proposalId });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: String(error) });
+    }
+  });
+
   app.post('/admin/tick', async (req, res) => {
     if (!config.adminToken) {
       res.status(403).json({ ok: false, error: 'RUNNER_ADMIN_TOKEN not configured' });

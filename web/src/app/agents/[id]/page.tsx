@@ -26,7 +26,7 @@ import { BOT_REGISTRY_ABI } from '@/lib/abi';
 import { loadConfig } from '@/lib/config';
 import { uploadImage } from '@/lib/nadfun/client';
 import { setAgentImageOverride } from '@/lib/agentImageOverride';
-import { getRunnerBotPerf, getRunnerBotTrades, getRunnerHealth, RunnerPerf, RunnerTrade } from '@/lib/runnerClient';
+import { getRunnerBotPerf, getRunnerBotTrades, getRunnerBotProposals, getRunnerHealth, RunnerPerf, RunnerTrade, RunnerProposal } from '@/lib/runnerClient';
 import { formatEther } from 'viem';
 
 export default function BotDetailPage() {
@@ -68,6 +68,7 @@ export default function BotDetailPage() {
   const [imageUploadSuccess, setImageUploadSuccess] = useState(false);
   const [runnerPerf, setRunnerPerf] = useState<RunnerPerf | null>(null);
   const [runnerTrades, setRunnerTrades] = useState<RunnerTrade[]>([]);
+  const [runnerProposals, setRunnerProposals] = useState<RunnerProposal[]>([]);
   const [marketCapMon, setMarketCapMon] = useState<bigint | null>(null);
   const [marketCapLoading, setMarketCapLoading] = useState(false);
   const [runnerStatus, setRunnerStatus] = useState<'unconfigured' | 'online' | 'offline' | 'loading'>(
@@ -241,20 +242,23 @@ export default function BotDetailPage() {
 
     const fetchRunner = async () => {
       setRunnerStatus('loading');
-      const [healthResult, perfResult, tradesResult] = await Promise.all([
+      const [healthResult, perfResult, tradesResult, proposalsResult] = await Promise.all([
         getRunnerHealth(baseUrl),
         getRunnerBotPerf(baseUrl, id),
         getRunnerBotTrades(baseUrl, id, 50),
+        getRunnerBotProposals(baseUrl, id, 50),
       ]);
       if (cancelled) return;
       if (healthResult.ok && perfResult.ok && perfResult.data && tradesResult.ok && tradesResult.data) {
         setRunnerStatus('online');
         setRunnerPerf(perfResult.data);
         setRunnerTrades(tradesResult.data.trades);
+        setRunnerProposals(proposalsResult.ok && proposalsResult.data ? proposalsResult.data.proposals : []);
       } else {
         setRunnerStatus('offline');
         setRunnerPerf(null);
         setRunnerTrades([]);
+        setRunnerProposals([]);
       }
     };
 
@@ -600,6 +604,99 @@ export default function BotDetailPage() {
                     </table>
                   </div>
                 )}
+              </div>
+
+              {/* Execution Panel */}
+              <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-8">
+                <h3 className="text-2xl font-bold mb-4 text-white">Execution</h3>
+                <div className="mb-6 space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-white/40 font-medium">Status:</span>
+                    <StatusChip
+                      label="Disconnected"
+                      variant="default"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-white/40 font-medium">Mode:</span>
+                    <span className="text-white/80">Simulation</span>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <h4 className="text-lg font-semibold text-white mb-3">Proposals</h4>
+                  {runnerStatus === 'unconfigured' && (
+                    <p className="text-white/40 text-sm">Runner not configured.</p>
+                  )}
+                  {runnerStatus === 'loading' && (
+                    <p className="text-white/50 text-sm">Loading runner data...</p>
+                  )}
+                  {runnerStatus === 'offline' && (
+                    <p className="text-white/40 text-sm">Runner offline.</p>
+                  )}
+                  {runnerStatus === 'online' && runnerProposals.length === 0 && (
+                    <p className="text-white/40 text-sm">No proposals yet.</p>
+                  )}
+                  {runnerStatus === 'online' && runnerProposals.length > 0 && (
+                    <div className="space-y-3">
+                      {runnerProposals.map((proposal) => (
+                        <div key={proposal.id} className="bg-white/[0.03] rounded-lg border border-white/10 p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`font-semibold text-sm ${
+                                proposal.action === 'BUY' ? 'text-green-400' : 
+                                proposal.action === 'SELL' ? 'text-red-400' : 
+                                'text-white/60'
+                              }`}>
+                                {proposal.action}
+                              </span>
+                              {proposal.qty !== null && (
+                                <span className="text-white/60 text-sm">Qty: {proposal.qty.toFixed(2)}</span>
+                              )}
+                              {proposal.price !== null && (
+                                <span className="text-white/60 text-sm">@ {proposal.price.toFixed(4)}</span>
+                              )}
+                            </div>
+                            <StatusChip
+                              label={proposal.status}
+                              variant={
+                                proposal.status === 'EXECUTED' ? 'success' :
+                                proposal.status === 'APPROVED' ? 'info' :
+                                proposal.status === 'REJECTED' ? 'warning' :
+                                'default'
+                              }
+                            />
+                          </div>
+                          <p className="text-white/70 text-sm mb-2">{proposal.reason}</p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-white/40 text-xs">
+                              {new Date(proposal.ts * 1000).toLocaleString()} • {proposal.source}
+                            </p>
+                            <div className="flex gap-2">
+                              <button
+                                disabled
+                                className="px-3 py-1 bg-green-500/20 text-green-400 text-xs rounded border border-green-500/20 opacity-50 cursor-not-allowed"
+                                title="Requires local connector"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                disabled
+                                className="px-3 py-1 bg-red-500/20 text-red-400 text-xs rounded border border-red-500/20 opacity-50 cursor-not-allowed"
+                                title="Requires local connector"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-white/30 mt-4">
+                  💡 Approve/Reject actions require a local connector. Proposals are generated by OpenClaw or manual POST.
+                </p>
               </div>
 
               {/* Activity Timeline */}

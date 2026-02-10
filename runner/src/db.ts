@@ -66,6 +66,20 @@ export interface BotTradeRow {
   meta: string | null;
 }
 
+export interface BotProposalRow {
+  id: number;
+  botId: string;
+  ts: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXECUTED';
+  mode: 'simulation' | 'shadow' | 'live';
+  action: 'BUY' | 'SELL' | 'HOLD';
+  qty: number | null;
+  price: number | null;
+  reason: string;
+  payload: string | null;
+  source: string;
+}
+
 function ensureDbDir(path: string) {
   mkdirSync(dirname(path), { recursive: true });
 }
@@ -175,9 +189,23 @@ export class RunnerDb {
         reason TEXT NOT NULL,
         meta TEXT
       )`,
+      `CREATE TABLE IF NOT EXISTS bot_proposals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        botId TEXT NOT NULL,
+        ts INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        mode TEXT NOT NULL,
+        action TEXT NOT NULL,
+        qty REAL,
+        price REAL,
+        reason TEXT NOT NULL,
+        payload TEXT,
+        source TEXT NOT NULL
+      )`,
       `CREATE INDEX IF NOT EXISTS idx_bot_perf_bot_ts ON bot_perf(botId, ts DESC)`,
       `CREATE INDEX IF NOT EXISTS idx_bot_decisions_bot_ts ON bot_decisions(botId, ts DESC)`,
       `CREATE INDEX IF NOT EXISTS idx_bot_trades_bot_ts ON bot_trades(botId, ts DESC)`,
+      `CREATE INDEX IF NOT EXISTS idx_bot_proposals_bot_ts ON bot_proposals(botId, ts DESC)`,
       `CREATE INDEX IF NOT EXISTS idx_bot_state_updated ON bot_state(updatedTs DESC)`,
     ];
 

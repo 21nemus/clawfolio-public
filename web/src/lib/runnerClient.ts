@@ -63,6 +63,27 @@ export interface RunnerBotTrades {
   trades: RunnerTrade[];
 }
 
+export interface RunnerProposal {
+  id: number;
+  botId: string;
+  ts: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXECUTED';
+  mode: 'simulation' | 'shadow' | 'live';
+  action: 'BUY' | 'SELL' | 'HOLD';
+  qty: number | null;
+  price: number | null;
+  reason: string;
+  payload: string | null;
+  source: string;
+}
+
+export interface RunnerBotProposals {
+  ok: boolean;
+  botId: string;
+  order: 'desc' | 'asc';
+  proposals: RunnerProposal[];
+}
+
 export interface RunnerResult<T> {
   ok: boolean;
   data?: T;
@@ -111,5 +132,10 @@ export async function getRunnerBotPerf(baseUrl: string, botId: string, limit = 2
 export async function getRunnerBotTrades(baseUrl: string, botId: string, limit = 50): Promise<RunnerResult<RunnerBotTrades>> {
   const capped = Math.max(1, Math.min(500, limit));
   return safeFetch<RunnerBotTrades>(`${normalizeBaseUrl(baseUrl)}/bots/${encodeURIComponent(botId)}/trades?limit=${capped}`);
+}
+
+export async function getRunnerBotProposals(baseUrl: string, botId: string, limit = 50): Promise<RunnerResult<RunnerBotProposals>> {
+  const capped = Math.max(1, Math.min(500, limit));
+  return safeFetch<RunnerBotProposals>(`${normalizeBaseUrl(baseUrl)}/bots/${encodeURIComponent(botId)}/proposals?limit=${capped}`);
 }
 

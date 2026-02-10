@@ -1,6 +1,6 @@
 import { createPublicClient, http } from 'viem';
 import { RunnerConfig } from './config.js';
-import { RunnerDb, BotStateRow, BotTradeRow, LeaderboardRow, LatestPerfRow, PerfRow } from './db.js';
+import { RunnerDb, BotStateRow, BotTradeRow, BotProposalRow, LeaderboardRow, LatestPerfRow, PerfRow } from './db.js';
 import { BotRegistryABI } from './abi/BotRegistry.js';
 import { BotAccountABI } from './abi/BotAccount.js';
 import { ERC20ABI } from './abi/ERC20.js';
@@ -443,6 +443,58 @@ export class RunnerService {
        LIMIT ?`,
       [botId, limit]
     );
+  }
+
+  async getBotProposals(botId: string, limit = 50): Promise<BotProposalRow[]> {
+    return this.db.all<BotProposalRow>(
+      `SELECT id, botId, ts, status, mode, action, qty, price, reason, payload, source
+       FROM bot_proposals
+       WHERE botId = ?
+       ORDER BY ts DESC, id DESC
+       LIMIT ?`,
+      [botId, limit]
+    );
+  }
+
+  async createProposal(proposal: {
+    botId: string;
+    action: 'BUY' | 'SELL' | 'HOLD';
+    qty?: number;
+    price?: number;
+    reason: string;
+    payload?: Record<string, unknown>;
+    source?: string;
+    mode?: 'simulation' | 'shadow' | 'live';
+  }): Promise<number> {
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const status = 'PENDING';
+    const mode = proposal.mode || 'simulation';
+    const source = proposal.source || 'manual';
+    const payloadJson = proposal.payload ? JSON.stringify(proposal.payload) : null;
+
+    await this.db.exec(
+      `INSERT INTO bot_proposals (botId, ts, status, mode, action, qty, price, reason, payload, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        proposal.botId,
+        nowSeconds,
+        status,
+        mode,
+        proposal.action,
+        proposal.qty ?? null,
+        proposal.price ?? null,
+        proposal.reason,
+        payloadJson,
+        source,
+      ]
+    );
+
+    const inserted = await this.db.get<{ id: number }>(
+      `SELECT id FROM bot_proposals WHERE botId = ? ORDER BY id DESC LIMIT 1`,
+      [proposal.botId]
+    );
+
+    return inserted?.id ?? 0;
   }
 }
 

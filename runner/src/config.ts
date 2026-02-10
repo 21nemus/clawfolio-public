@@ -20,6 +20,7 @@ export interface RunnerConfig {
   adminToken: string | null;
   tradeProb: number;
   tradeMinCooldownSeconds: number;
+  connectorToken: string | null;
 }
 
 function getEnv(key: string, defaultValue?: string): string {
@@ -56,6 +57,7 @@ export function loadConfig(): RunnerConfig {
   const tradeMinCooldownSeconds = Number.isFinite(tradeMinCooldownRaw)
     ? Math.max(1, tradeMinCooldownRaw)
     : 300;
+  const connectorToken = getEnv('RUNNER_CONNECTOR_TOKEN') || null;
 
   if (quoteMode === 'uniswapV2') {
     const routerAddr = getEnv('RUNNER_QUOTE_ROUTER');
@@ -83,5 +85,6 @@ export function loadConfig(): RunnerConfig {
     adminToken,
     tradeProb,
     tradeMinCooldownSeconds,
+    connectorToken,
   };
 }
