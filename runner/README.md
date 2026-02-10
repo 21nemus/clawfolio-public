@@ -12,8 +12,13 @@ This service runs separately from the Vercel web app, polls onchain bot state, w
   - `GET /health`
   - `GET /leaderboard`
   - `GET /bots/:botId/perf`
-- Optional protected admin tick endpoint:
+  - `GET /bots/:botId/trades`
+  - `GET /bots/:botId/proposals`
+  - `GET /bots/:botId/connector`
+- Optional protected endpoints:
   - `POST /admin/tick` with `X-Runner-Admin-Token`
+  - `POST /bots/:botId/proposals` (localhost-only, requires token if `RUNNER_CONNECTOR_TOKEN` set)
+  - `POST /bots/:botId/connector/heartbeat` (localhost-only, optional token)
 
 ## Safety model
 
@@ -79,6 +84,9 @@ Because Vercel needs a public URL for `NEXT_PUBLIC_RUNNER_BASE_URL`, place a rev
   - `/health`
   - `/leaderboard`
   - `/bots/:botId/perf`
+  - `/bots/:botId/trades`
+  - `/bots/:botId/proposals`
+  - `/bots/:botId/connector`
 
 Example stack:
 
@@ -115,6 +123,41 @@ Primary DB file:
 - `runner/out/runner.db`
 
 Back up this file regularly for leaderboard/performance continuity.
+
+## OpenClaw Connector Heartbeat
+
+The runner tracks OpenClaw (or other connector) connection status via heartbeats:
+
+### Read connector status (public)
+
+```bash
+curl http://127.0.0.1:8787/bots/0/connector?connectorType=openclaw
+```
+
+Returns `{ ok: true, botId: "0", connector: { ... } | null }`.
+
+### Post heartbeat (localhost-only)
+
+```bash
+# Without token (if RUNNER_CONNECTOR_TOKEN not set)
+curl -X POST http://127.0.0.1:8787/bots/0/connector/heartbeat \
+  -H "Content-Type: application/json" \
+  -d '{"connectorType":"openclaw","mode":"shadow","version":"0.1.0"}'
+
+# With token (if RUNNER_CONNECTOR_TOKEN is set)
+curl -X POST http://127.0.0.1:8787/bots/0/connector/heartbeat \
+  -H "X-Runner-Connector-Token: your-token" \
+  -H "Content-Type: application/json" \
+  -d '{"connectorType":"openclaw","mode":"shadow","version":"0.1.0"}'
+```
+
+### Demo script
+
+```bash
+BOT_ID=0 RUNNER_CONNECTOR_TOKEN=your-token ./runner/scripts/demo_heartbeat.sh
+```
+
+Heartbeats update `lastHeartbeatTs` (unix ms) and upsert connector metadata (mode, version, capabilities).
 
 ## Legacy CLI commands
 

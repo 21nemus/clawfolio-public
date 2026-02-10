@@ -1,6 +1,6 @@
 import { createPublicClient, http } from 'viem';
 import { RunnerConfig } from './config.js';
-import { RunnerDb, BotStateRow, BotTradeRow, BotProposalRow, LeaderboardRow, LatestPerfRow, PerfRow } from './db.js';
+import { RunnerDb, BotStateRow, BotTradeRow, BotProposalRow, BotConnectorRow, LeaderboardRow, LatestPerfRow, PerfRow } from './db.js';
 import { BotRegistryABI } from './abi/BotRegistry.js';
 import { BotAccountABI } from './abi/BotAccount.js';
 import { ERC20ABI } from './abi/ERC20.js';
@@ -495,6 +495,56 @@ export class RunnerService {
     );
 
     return inserted?.id ?? 0;
+  }
+
+  async getBotConnector(botId: string, connectorType = 'openclaw'): Promise<BotConnectorRow | null> {
+    const row = await this.db.get<BotConnectorRow>(
+      `SELECT id, botId, connectorType, status, mode, capabilities, version, lastHeartbeatTs, meta, createdAtTs, updatedAtTs
+       FROM bot_connectors
+       WHERE botId = ? AND connectorType = ?
+       LIMIT 1`,
+      [botId, connectorType]
+    );
+    return row ?? null;
+  }
+
+  async upsertConnectorHeartbeat(params: {
+    botId: string;
+    connectorType?: string;
+    mode?: string;
+    capabilities?: Record<string, unknown>;
+    version?: string;
+    meta?: Record<string, unknown>;
+  }): Promise<void> {
+    const nowMs = Date.now();
+    const connectorType = params.connectorType || 'openclaw';
+    const capabilitiesJson = params.capabilities ? JSON.stringify(params.capabilities) : null;
+    const metaJson = params.meta ? JSON.stringify(params.meta) : null;
+
+    const existing = await this.db.get<{ id: number }>(
+      `SELECT id FROM bot_connectors WHERE botId = ? AND connectorType = ?`,
+      [params.botId, connectorType]
+    );
+
+    if (existing) {
+      await this.db.exec(
+        `UPDATE bot_connectors 
+         SET lastHeartbeatTs = ?,
+             mode = COALESCE(?, mode),
+             capabilities = COALESCE(?, capabilities),
+             version = COALESCE(?, version),
+             meta = COALESCE(?, meta),
+             updatedAtTs = ?
+         WHERE id = ?`,
+        [nowMs, params.mode || null, capabilitiesJson, params.version || null, metaJson, nowMs, existing.id]
+      );
+    } else {
+      await this.db.exec(
+        `INSERT INTO bot_connectors (botId, connectorType, status, mode, capabilities, version, lastHeartbeatTs, meta, createdAtTs, updatedAtTs)
+         VALUES (?, ?, 'connected', ?, ?, ?, ?, ?, ?, ?)`,
+        [params.botId, connectorType, params.mode || null, capabilitiesJson, params.version || null, nowMs, metaJson, nowMs, nowMs]
+      );
+    }
   }
 }
 

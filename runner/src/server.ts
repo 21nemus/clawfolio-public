@@ -4,6 +4,12 @@ import { loadConfig } from './config.js';
 import { RunnerDb } from './db.js';
 import { RunnerService } from './simulation.js';
 
+function isLoopback(remoteAddress?: string): boolean {
+  if (!remoteAddress) return false;
+  const cleaned = remoteAddress.replace(/^::ffff:/, '');
+  return cleaned === '127.0.0.1' || cleaned === '::1' || cleaned === 'localhost';
+}
+
 async function main() {
   const config = loadConfig();
   const db = await RunnerDb.init(config);
@@ -135,6 +141,68 @@ async function main() {
       });
 
       res.json({ ok: true, botId, proposalId });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: String(error) });
+    }
+  });
+
+  app.get('/bots/:botId/connector', async (req, res) => {
+    try {
+      const botId = req.params.botId;
+      const connectorType = (req.query.connectorType as string) || 'openclaw';
+      const connector = await service.getBotConnector(botId, connectorType);
+      res.json({
+        ok: true,
+        botId,
+        connector: connector ? {
+          connectorType: connector.connectorType,
+          status: connector.status,
+          mode: connector.mode,
+          capabilities: connector.capabilities ? JSON.parse(connector.capabilities) : null,
+          version: connector.version,
+          lastHeartbeatTs: connector.lastHeartbeatTs,
+          meta: connector.meta ? JSON.parse(connector.meta) : null,
+        } : null,
+      });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: String(error) });
+    }
+  });
+
+  app.post('/bots/:botId/connector/heartbeat', async (req, res) => {
+    if (!isLoopback(req.socket.remoteAddress)) {
+      res.status(403).json({ ok: false, error: 'Heartbeat endpoint is localhost-only' });
+      return;
+    }
+
+    if (config.connectorToken) {
+      const token = req.header('X-Runner-Connector-Token');
+      if (!token || token !== config.connectorToken) {
+        res.status(401).json({ ok: false, error: 'Unauthorized' });
+        return;
+      }
+    }
+
+    try {
+      const botId = req.params.botId;
+      const { connectorType, mode, capabilities, version, meta } = req.body;
+
+      await service.upsertConnectorHeartbeat({
+        botId,
+        connectorType,
+        mode,
+        capabilities,
+        version,
+        meta,
+      });
+
+      const connector = await service.getBotConnector(botId, connectorType || 'openclaw');
+      res.json({
+        ok: true,
+        botId,
+        connectorType: connector?.connectorType || connectorType || 'openclaw',
+        lastHeartbeatTs: connector?.lastHeartbeatTs || Date.now(),
+      });
     } catch (error) {
       res.status(500).json({ ok: false, error: String(error) });
     }

@@ -84,6 +84,22 @@ export interface RunnerBotProposals {
   proposals: RunnerProposal[];
 }
 
+export interface RunnerBotConnector {
+  connectorType: string;
+  status: string;
+  mode: string | null;
+  capabilities: Record<string, unknown> | null;
+  version: string | null;
+  lastHeartbeatTs: number;
+  meta: Record<string, unknown> | null;
+}
+
+export interface RunnerBotConnectorResponse {
+  ok: boolean;
+  botId: string;
+  connector: RunnerBotConnector | null;
+}
+
 export interface RunnerResult<T> {
   ok: boolean;
   data?: T;
@@ -137,5 +153,9 @@ export async function getRunnerBotTrades(baseUrl: string, botId: string, limit =
 export async function getRunnerBotProposals(baseUrl: string, botId: string, limit = 50): Promise<RunnerResult<RunnerBotProposals>> {
   const capped = Math.max(1, Math.min(500, limit));
   return safeFetch<RunnerBotProposals>(`${normalizeBaseUrl(baseUrl)}/bots/${encodeURIComponent(botId)}/proposals?limit=${capped}`);
+}
+
+export async function getRunnerBotConnector(baseUrl: string, botId: string, connectorType = 'openclaw'): Promise<RunnerResult<RunnerBotConnectorResponse>> {
+  return safeFetch<RunnerBotConnectorResponse>(`${normalizeBaseUrl(baseUrl)}/bots/${encodeURIComponent(botId)}/connector?connectorType=${encodeURIComponent(connectorType)}`);
 }
 

@@ -80,6 +80,20 @@ export interface BotProposalRow {
   source: string;
 }
 
+export interface BotConnectorRow {
+  id: number;
+  botId: string;
+  connectorType: string;
+  status: string;
+  mode: string | null;
+  capabilities: string | null;
+  version: string | null;
+  lastHeartbeatTs: number;
+  meta: string | null;
+  createdAtTs: number;
+  updatedAtTs: number;
+}
+
 function ensureDbDir(path: string) {
   mkdirSync(dirname(path), { recursive: true });
 }
@@ -202,10 +216,25 @@ export class RunnerDb {
         payload TEXT,
         source TEXT NOT NULL
       )`,
+      `CREATE TABLE IF NOT EXISTS bot_connectors (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        botId TEXT NOT NULL,
+        connectorType TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'connected',
+        mode TEXT,
+        capabilities TEXT,
+        version TEXT,
+        lastHeartbeatTs INTEGER NOT NULL,
+        meta TEXT,
+        createdAtTs INTEGER NOT NULL,
+        updatedAtTs INTEGER NOT NULL
+      )`,
       `CREATE INDEX IF NOT EXISTS idx_bot_perf_bot_ts ON bot_perf(botId, ts DESC)`,
       `CREATE INDEX IF NOT EXISTS idx_bot_decisions_bot_ts ON bot_decisions(botId, ts DESC)`,
       `CREATE INDEX IF NOT EXISTS idx_bot_trades_bot_ts ON bot_trades(botId, ts DESC)`,
       `CREATE INDEX IF NOT EXISTS idx_bot_proposals_bot_ts ON bot_proposals(botId, ts DESC)`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_bot_connectors_bot_type ON bot_connectors(botId, connectorType)`,
+      `CREATE INDEX IF NOT EXISTS idx_bot_connectors_heartbeat ON bot_connectors(lastHeartbeatTs DESC)`,
       `CREATE INDEX IF NOT EXISTS idx_bot_state_updated ON bot_state(updatedTs DESC)`,
     ];
 

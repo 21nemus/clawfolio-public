@@ -26,7 +26,7 @@ import { BOT_REGISTRY_ABI } from '@/lib/abi';
 import { loadConfig } from '@/lib/config';
 import { uploadImage } from '@/lib/nadfun/client';
 import { setAgentImageOverride } from '@/lib/agentImageOverride';
-import { getRunnerBotPerf, getRunnerBotTrades, getRunnerBotProposals, getRunnerHealth, RunnerPerf, RunnerTrade, RunnerProposal } from '@/lib/runnerClient';
+import { getRunnerBotPerf, getRunnerBotTrades, getRunnerBotProposals, getRunnerBotConnector, getRunnerHealth, RunnerPerf, RunnerTrade, RunnerProposal, RunnerBotConnector } from '@/lib/runnerClient';
 import { formatEther } from 'viem';
 
 export default function BotDetailPage() {
@@ -69,11 +69,13 @@ export default function BotDetailPage() {
   const [runnerPerf, setRunnerPerf] = useState<RunnerPerf | null>(null);
   const [runnerTrades, setRunnerTrades] = useState<RunnerTrade[]>([]);
   const [runnerProposals, setRunnerProposals] = useState<RunnerProposal[]>([]);
+  const [runnerConnector, setRunnerConnector] = useState<RunnerBotConnector | null>(null);
   const [marketCapMon, setMarketCapMon] = useState<bigint | null>(null);
   const [marketCapLoading, setMarketCapLoading] = useState(false);
   const [runnerStatus, setRunnerStatus] = useState<'unconfigured' | 'online' | 'offline' | 'loading'>(
     appConfig.runnerBaseUrl ? 'loading' : 'unconfigured'
   );
+  const [setupExpanded, setSetupExpanded] = useState(false);
 
   // Check logs first (fast path if bot is recent)
   useEffect(() => {
@@ -242,11 +244,12 @@ export default function BotDetailPage() {
 
     const fetchRunner = async () => {
       setRunnerStatus('loading');
-      const [healthResult, perfResult, tradesResult, proposalsResult] = await Promise.all([
+      const [healthResult, perfResult, tradesResult, proposalsResult, connectorResult] = await Promise.all([
         getRunnerHealth(baseUrl),
         getRunnerBotPerf(baseUrl, id),
         getRunnerBotTrades(baseUrl, id, 50),
         getRunnerBotProposals(baseUrl, id, 50),
+        getRunnerBotConnector(baseUrl, id),
       ]);
       if (cancelled) return;
       if (healthResult.ok && perfResult.ok && perfResult.data && tradesResult.ok && tradesResult.data) {
@@ -254,11 +257,13 @@ export default function BotDetailPage() {
         setRunnerPerf(perfResult.data);
         setRunnerTrades(tradesResult.data.trades);
         setRunnerProposals(proposalsResult.ok && proposalsResult.data ? proposalsResult.data.proposals : []);
+        setRunnerConnector(connectorResult.ok && connectorResult.data ? connectorResult.data.connector : null);
       } else {
         setRunnerStatus('offline');
         setRunnerPerf(null);
         setRunnerTrades([]);
         setRunnerProposals([]);
+        setRunnerConnector(null);
       }
     };
 
@@ -612,16 +617,104 @@ export default function BotDetailPage() {
                 <div className="mb-6 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
                     <span className="text-white/40 font-medium">Status:</span>
-                    <StatusChip
-                      label="Disconnected"
-                      variant="default"
-                    />
+                    {runnerStatus === 'online' && runnerConnector && (() => {
+                      const ageMs = Date.now() - runnerConnector.lastHeartbeatTs;
+                      const ageSec = ageMs / 1000;
+                      let status = 'Disconnected';
+                      let variant: 'default' | 'success' | 'warning' = 'default';
+                      if (ageSec <= 120) {
+                        status = 'Connected';
+                        variant = 'success';
+                      } else if (ageSec <= 600) {
+                        status = 'Degraded';
+                        variant = 'warning';
+                      }
+                      return <StatusChip label={status} variant={variant} />;
+                    })()}
+                    {(!runnerConnector || runnerStatus !== 'online') && (
+                      <StatusChip label="Disconnected" variant="default" />
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-white/40 font-medium">Mode:</span>
-                    <span className="text-white/80">Simulation</span>
-                  </div>
+                  {runnerConnector && runnerStatus === 'online' && (
+                    <>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-white/40 font-medium">Mode:</span>
+                        <span className="text-white/80">{runnerConnector.mode || 'Simulation'}</span>
+                      </div>
+                      {runnerConnector.version && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-white/40 font-medium">Version:</span>
+                          <span className="text-white/60">{runnerConnector.version}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-white/40 font-medium">Last seen:</span>
+                        <span className="text-white/60">
+                          {(() => {
+                            const ageMs = Date.now() - runnerConnector.lastHeartbeatTs;
+                            const ageSec = Math.floor(ageMs / 1000);
+                            if (ageSec < 60) return `${ageSec}s ago`;
+                            const ageMin = Math.floor(ageSec / 60);
+                            return `${ageMin}m ago`;
+                          })()}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  {(!runnerConnector || runnerStatus !== 'online') && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-white/40 font-medium">Mode:</span>
+                      <span className="text-white/80">Simulation</span>
+                    </div>
+                  )}
                 </div>
+
+                {(!runnerConnector || runnerStatus !== 'online' || Date.now() - runnerConnector.lastHeartbeatTs > 120000) && (
+                  <div className="mb-6 bg-white/[0.03] border border-white/10 rounded-lg p-4">
+                    <button
+                      onClick={() => setSetupExpanded(!setupExpanded)}
+                      className="w-full flex items-center justify-between text-left"
+                    >
+                      <span className="text-sm font-medium text-white">Connect OpenClaw</span>
+                      <span className="text-white/60 text-xs">{setupExpanded ? '▼' : '▶'}</span>
+                    </button>
+                    {setupExpanded && (
+                      <div className="mt-4 space-y-4 text-xs text-white/70">
+                        <div>
+                          <p className="font-medium text-white/90 mb-1">Step 1: Set RUNNER_CONNECTOR_TOKEN on VPS</p>
+                          <p className="mb-2">On your VPS, edit <code className="bg-black/30 px-1 rounded">/opt/clawfolio/runner/.env</code>:</p>
+                          <div className="bg-black/40 p-2 rounded font-mono text-[11px] relative group">
+                            <code>RUNNER_CONNECTOR_TOKEN=your-secret-token-here</code>
+                            <CopyButton text="RUNNER_CONNECTOR_TOKEN=your-secret-token-here" label="token" />
+                          </div>
+                          <p className="mt-1 text-white/50">Then restart: <code className="bg-black/30 px-1 rounded">docker compose down && docker compose up -d</code></p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-white/90 mb-1">Step 2: Run OpenClaw with env vars</p>
+                          <div className="bg-black/40 p-2 rounded font-mono text-[11px] space-y-1">
+                            <div>RUNNER_BASE_URL=http://127.0.0.1:8787</div>
+                            <div>RUNNER_CONNECTOR_TOKEN=your-secret-token-here</div>
+                            <div>BOT_ID={id}</div>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="font-medium text-white/90 mb-1">Step 3: Heartbeat request example</p>
+                          <div className="bg-black/40 p-2 rounded font-mono text-[11px] overflow-x-auto relative group">
+                            <code>{`curl -X POST http://127.0.0.1:8787/bots/${id}/connector/heartbeat \\
+  -H "X-Runner-Connector-Token: your-token" \\
+  -H "Content-Type: application/json" \\
+  -d '{"connectorType":"openclaw","mode":"shadow","version":"0.1.0"}'`}</code>
+                            <CopyButton 
+                              text={`curl -X POST http://127.0.0.1:8787/bots/${id}/connector/heartbeat -H "X-Runner-Connector-Token: your-token" -H "Content-Type: application/json" -d '{"connectorType":"openclaw","mode":"shadow","version":"0.1.0"}'`} 
+                              label="curl" 
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
 
                 <div className="mb-4">
                   <h4 className="text-lg font-semibold text-white mb-3">Proposals</h4>
