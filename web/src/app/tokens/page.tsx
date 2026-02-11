@@ -383,7 +383,7 @@ export default function TokensPage() {
                 </Link>
                 <Link
                   href={`/agents/${token.botId}#token`}
-                  className="flex-1 text-center px-3 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded text-xs text-red-400 transition-colors"
+                  className="flex-1 text-center px-3 py-2 bg-cyan-400/20 hover:bg-cyan-400/30 border border-cyan-400/30 rounded text-xs text-cyan-200 transition-colors"
                 >
                   Buy
                 </Link>
