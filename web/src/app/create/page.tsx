@@ -151,8 +151,11 @@ export default function CreatePage() {
       return;
     }
 
+    // Compute finalImageUrl to avoid React state race
+    let finalImageUrl = imageUrl;
+
     // Auto-upload image if file is selected but not yet uploaded
-    if (imageFile && !imageUrl) {
+    if (imageFile && !finalImageUrl) {
       try {
         setImageUploading(true);
         const result = await uploadImage(imageFile);
@@ -164,6 +167,8 @@ export default function CreatePage() {
           return;
         }
         
+        // Use local variable to avoid state race
+        finalImageUrl = imageUri;
         setImageUrl(imageUri);
         setImageFile(null);
         setImageUploading(false);
@@ -197,7 +202,7 @@ export default function CreatePage() {
       name,
       description,
       strategyPrompt: strategyPrompt || undefined,
-      image: imageUrl || undefined,
+      image: finalImageUrl || undefined,
       handle: handle || undefined,
       website: website || undefined,
       twitter: twitter || undefined,

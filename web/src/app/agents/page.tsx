@@ -35,6 +35,7 @@ function TopBotCardWithAvatar({ bot, idx }: { bot: TopBot; idx: number }) {
     metadataImage: bot.image,
     botToken: bot.tokenAddress,
     hasToken: bot.hasToken,
+    disableLocalOverride: true,
   });
 
   return (

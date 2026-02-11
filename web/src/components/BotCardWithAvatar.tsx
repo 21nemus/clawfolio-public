@@ -35,6 +35,7 @@ export function BotCardWithAvatar({
     metadataImage,
     botToken,
     hasToken,
+    disableLocalOverride: true,
   });
 
   return (

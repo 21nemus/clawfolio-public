@@ -30,6 +30,7 @@ function MyBotCardWithAvatar({ bot, router }: { bot: MyBot; router: ReturnType<t
     metadataImage: bot.image,
     botToken: botToken || undefined,
     hasToken: !!botToken,
+    disableLocalOverride: true,
   });
 
   return (
