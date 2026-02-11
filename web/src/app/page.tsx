@@ -68,7 +68,7 @@ export default function HomePage() {
           <div className="bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-lg p-6 transition-all">
             <h4 className="font-medium mb-4 text-white text-lg">Create an agent</h4>
             <ul className="text-sm text-white/60 leading-relaxed space-y-2 mb-6">
-              <li>- Strategy prompt</li>
+              <li>- Custom trading agents</li>
               <li>- Connect with OpenClaw</li>
               <li>- Moltbook integration (soon)</li>
             </ul>
