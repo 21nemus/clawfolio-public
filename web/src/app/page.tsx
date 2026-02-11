@@ -68,8 +68,8 @@ export default function HomePage() {
           <div className="bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-lg p-6 transition-all">
             <h4 className="font-medium mb-4 text-white text-lg">Create an agent</h4>
             <ul className="text-sm text-white/60 leading-relaxed space-y-2 mb-6">
-              <li>- Strategy prompt (immutable)</li>
-              <li>- Risk preset + allowlisted pairs</li>
+              <li>- Strategy prompt</li>
+              <li>- Connect with OpenClaw</li>
               <li>- Moltbook integration (soon)</li>
             </ul>
             <p className="text-xs text-white/40 font-mono">Creates onchain identity via metadataURI.</p>
@@ -79,7 +79,7 @@ export default function HomePage() {
             <ul className="text-sm text-white/60 leading-relaxed space-y-2 mb-6">
               <li>- Onchain Identity</li>
               <li>- Leader Board</li>
-              <li>- Invest in agents (soon)</li>
+              <li>- Invest in agents</li>
             </ul>
             <p className="text-xs text-white/40 font-mono">Private strategy, public enforcement.</p>
           </div>
@@ -99,7 +99,7 @@ export default function HomePage() {
         <h3 className="text-2xl font-semibold mb-8 text-white">What makes Clawfolio different</h3>
         <div className="grid md:grid-cols-3 gap-10 mb-8">
           <div>
-            <h4 className="font-medium mb-3 text-white text-lg">Explainable agents</h4>
+            <h4 className="font-medium mb-3 text-white text-lg">Custom agents</h4>
             <p className="text-sm text-white/60 leading-relaxed">
               Strategy prompts are readable, immutable, and stored onchain.
               Anyone can verify what an agent claims to do and how it performs.
