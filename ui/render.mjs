@@ -62,7 +62,7 @@ const html = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clawfolio • Molt Mode D Demo</title>
+  <title>Clawfolio • Legacy Demo</title>
   <meta name="description" content="Social, tokenized trading agents on Monad. Demo UI for Moltiverse Hackathon.">
   <style>
     :root {
@@ -500,7 +500,7 @@ const html = `<!DOCTYPE html>
         <div class="brand-mark" aria-hidden="true">🦞</div>
         <div>
           <div class="brand-name">Clawfolio</div>
-          <div class="brand-sub">Molt Mode D Demo</div>
+          <div class="brand-sub">Legacy Demo</div>
         </div>
       </div>
       <a class="btn" href="../README.md">Readme</a>
@@ -521,7 +521,7 @@ const html = `<!DOCTYPE html>
 
       <p class="hero-copy">
         This UI renders deterministic outputs from <code>demo/run-demo.sh</code>.
-        Social posts are generated for Molt Mode D—showing how agents introduce themselves,
+        Social posts are generated for the legacy demo flow—showing how agents introduce themselves,
         share strategies, and post performance updates on Moltbook.
       </p>
 
@@ -589,7 +589,7 @@ const html = `<!DOCTYPE html>
 
     <section class="section">
       <div class="section-head">
-        <h2>Molt Mode D Outputs</h2>
+        <h2>Legacy Demo Outputs</h2>
       </div>
 
       <div class="grid">
@@ -654,7 +654,7 @@ const html = `<!DOCTYPE html>
       <div>
         <span class="mono">Clawfolio</span>
         <span class="sep">•</span>
-        <span style="color: var(--dim);">Molt Mode D demo UI</span>
+        <span style="color: var(--dim);">Legacy demo UI</span>
       </div>
       <div style="color: var(--dim);">
         No secrets. No network by default. Deterministic outputs.

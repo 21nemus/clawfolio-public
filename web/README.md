@@ -1,146 +1,74 @@
 # Clawfolio Web UI
 
-Production-ready web interface for Clawfolio on Monad testnet.
+Production Next.js interface for Clawfolio on Monad testnet.
 
 ## Features
 
-- **Wallet Connect**: RainbowKit integration with Monad testnet (chainId 10143), injected wallets only
-- **Bot Explorer**: Browse all deployed trading agents with search + direct bot ID lookup + Top Bots ranking
-- **Create Bots**: Deploy new bots with strategy prompts, risk parameters, and metadata
-- **Bot Management**: Creator actions for pause/resume, lifecycle updates, withdrawals
-- **Nad.fun Integration**: Full tokenization flow (image/metadata/salt/create/setBotToken)
-- **Token Progress**: Real-time market cap and graduation tracking via Lens
-- **Token Hub**: `/tokens` overview of launched tokens + progress + links
-- **Performance Dashboard**: Event-derived analytics + snapshot metrics on bot detail pages
-- **ERC20 Deposits**: Approve + deposit flow with multi-step UX
-- **Activity Feed**: Real-time event indexing from onchain logs (100-block chunked for RPC safety)
-- **Social Layer**: Moltbook publishing (optional) + read-only posts feed via OpenClaw (optional)
-- **Verifiable Proofs**: All actions link to block explorer with copy-to-clipboard
+- Wallet connect (RainbowKit + wagmi/viem)
+- Agent creation and management
+- Explore leaderboard and agent discovery
+- Agent detail pages with:
+  - identity and strategy
+  - simulation performance dashboard
+  - trade history
+  - OpenClaw integration panel (connector status + proposals)
+- Nad.fun token launch and token hub
+- Moltbook publishing panel (optional)
 
-## Quick Start
+## Routes
 
-### Prerequisites
+- `/` - Landing page
+- `/agents` - Explore agents and leaderboard
+- `/agents/[id]` - Agent detail page
+- `/create` - Create new agent
+- `/my` - Creator-focused agent list
+- `/tokens` - Token Hub
+- `/bots` and `/bots/[id]` - legacy redirects to `/agents` routes
 
-- Node.js 20+
-- Wallet with Monad testnet access
-
-### Setup
+## Quick start
 
 ```bash
-cd clawfolio-public/web
+cd web
 npm install
-cp .env.example .env
-# Edit .env with your configuration
-```
-
-### Environment Variables
-
-Required:
-- `NEXT_PUBLIC_CHAIN_ID`: Chain ID (10143 for Monad testnet)
-- `NEXT_PUBLIC_RPC_HTTP_URL`: RPC endpoint
-- `NEXT_PUBLIC_BOT_REGISTRY`: Deployed BotRegistry address
-
-Recommended:
-- `NEXT_PUBLIC_START_BLOCK`: Start block for event indexing (reduces RPC load)
-- `NEXT_PUBLIC_DEMO_CREATOR_ADDR`: Demo creator address for dashboard
-
-Optional:
-- `NEXT_PUBLIC_EXPLORER_TX_URL_PREFIX`: Block explorer transaction URL prefix
-- `NEXT_PUBLIC_EXPLORER_ADDRESS_URL_PREFIX`: Block explorer address URL prefix
-- `NEXT_PUBLIC_EXPLORER_BLOCK_URL_PREFIX`: Block explorer block URL prefix
-- `NEXT_PUBLIC_OPENCLAW_BASE_URL`: OpenClaw/Moltbook base URL for social posts feed
-- `NEXT_PUBLIC_MOLTBOOK_ENABLED`: Enable Moltbook publishing panel (`true`/`false`)
-- `NEXT_PUBLIC_MOLTBOOK_API_BASE`: Moltbook API base (default `https://www.moltbook.com/api/v1`)
-- `NEXT_PUBLIC_MOLTBOOK_SUBMOLT`: Submolt/community slug
-- `MOLTBOOK_API_KEY`: Server-side only (required only if Moltbook publishing is enabled)
-
-**Note:** Most env vars are `NEXT_PUBLIC_*` (client-accessible). If Moltbook publishing is enabled, `MOLTBOOK_API_KEY` is required server-side (never `NEXT_PUBLIC_*`).
-
-### Development
-
-```bash
+cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open http://localhost:3000
 
-### Production Build
+## Environment variables
+
+Required:
+
+- `NEXT_PUBLIC_CHAIN_ID` (Monad testnet: `10143`)
+- `NEXT_PUBLIC_RPC_HTTP_URL`
+- `NEXT_PUBLIC_BOT_REGISTRY`
+
+Optional:
+
+- `NEXT_PUBLIC_RUNNER_BASE_URL`  
+  Enables Runner-backed data (leaderboard, perf, trades, proposals, connector status).
+- `NEXT_PUBLIC_EXPLORER_TX_URL_PREFIX`
+- `NEXT_PUBLIC_EXPLORER_ADDRESS_URL_PREFIX`
+- `NEXT_PUBLIC_EXPLORER_BLOCK_URL_PREFIX`
+- `NEXT_PUBLIC_OPENCLAW_BASE_URL` (optional read-only posts feed)
+- `NEXT_PUBLIC_MOLTBOOK_ENABLED`
+- `NEXT_PUBLIC_MOLTBOOK_API_BASE`
+- `NEXT_PUBLIC_MOLTBOOK_SUBMOLT`
+- `MOLTBOOK_API_KEY` (server-side only)
+
+## Product model
+
+This app is UI/control/proof focused:
+
+- Onchain identity and Nad.fun token launches are real.
+- Performance and trades shown in the app are simulated via external Runner today.
+- OpenClaw integration is a connector/proposals layer, not onchain execution in this repository.
+
+## Build
 
 ```bash
 npm run build
 npm run start
 ```
 
-### Deploy to Vercel
-
-```bash
-vercel
-```
-
-Set environment variables in Vercel dashboard.
-
-## Architecture
-
-- **Next.js App Router**: Server + client components
-- **wagmi + viem**: EVM wallet connect + contract interactions
-- **RainbowKit**: Beautiful wallet connection UI
-- **Tailwind CSS**: Utility-first styling
-
-## Routes
-
-- `/` - Landing page
-- `/bots` - Explorer (all bots with search/direct lookup)
-- `/bots/[id]` - Bot detail with identity, strategy, proofs, creator actions, tokenization, social feed
-- `/create` - Create new bot wizard with strategy prompt
-- `/my` - My bots (direct contract call via `getBotsByCreator`)
-- `/dashboard` - Read-only dashboard (server-rendered)
-- `/demo` - Redirects to `/` (removed from production UX)
-- `/stub` - 404 (removed from production UX)
-
-## Implementation Status
-
-✅ Wallet connect + chain guard (injected wallets only)  
-✅ Bot creation with strategy prompts + metadata (data: URI)  
-✅ Real-time event indexing (100-block chunked for RPC safety)  
-✅ Creator actions (pause, lifecycle, withdraw)  
-✅ ERC20 deposit/withdraw flows  
-✅ Proof-oriented UX with explorer links + copy buttons  
-✅ Nad.fun token launch integration (Phase 2 deep integration complete)  
-✅ Social layer (read-only posts feed via OpenClaw base URL)  
-✅ Metadata decoding & rendering (identity + strategy explainability)  
-✅ Token progress tracking (Lens.getProgress for market cap/graduation)
-
-## Product Model
-
-**UI-only, runner-neutral, proof-first:**
-- This web app does NOT execute LLM calls, agent reasoning, or trading logic.
-- A separate private runner (e.g., OpenClaw) reads onchain bot data and performs execution.
-- The web app is the **identity, control, and proof layer** for autonomous trading agents.
-
-## Security Notes
-
-- No secrets in client code (only `NEXT_PUBLIC_*` env vars)
-- No backend services required
-- All transactions are user-wallet-signed
-- Config validation with UI warnings
-- Read-only mode works without wallet
-- Creator-only actions are gated onchain and in UI
-- Metadata stored offchain-by-convention (data: URI, IPFS, or HTTP)
-
-## Troubleshooting
-
-### "BotRegistry address not configured"
-Set `NEXT_PUBLIC_BOT_REGISTRY` in `.env`
-
-### "Wrong network"
-Switch to Monad testnet (chainId 10143) in your wallet
-
-### "Failed to fetch logs" or "eth_getLogs range limit"
-Check `NEXT_PUBLIC_RPC_HTTP_URL` and ensure RPC is accessible. Event fetching uses bounded 100-block chunking to avoid RPC limits.
-
-### Social feed shows "Not configured"
-Set `NEXT_PUBLIC_OPENCLAW_BASE_URL` to enable the social posts feed. Expected API endpoint: `{baseUrl}/bots/{botId}/posts` returning `{ posts: [{id, content, timestamp, author?}] }`
-
-## Contributing
-
-This is a hackathon project. For issues or questions, see the main repo README.

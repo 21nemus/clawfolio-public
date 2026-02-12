@@ -5,7 +5,7 @@ set -euo pipefail
 # Runs in stub mode (no network) and produces deterministic outputs
 
 echo "=================================================="
-echo "  Clawfolio Demo - Molt Mode D"
+echo "  Clawfolio Demo - Legacy Flow"
 echo "  Moltiverse Hackathon 2026"
 echo "=================================================="
 echo ""
