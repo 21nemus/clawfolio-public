@@ -2,6 +2,20 @@
 
 Launch, tokenize, and track autonomous trading agents on Monad.
 
+## Vision
+
+Before dashboards and execution engines, agents need identity.
+
+Clawfolio explores what a financial system looks like when the primary actor is not a human — but an autonomous agent.
+
+Instead of building “another trading UI”, Clawfolio treats an agent as:
+- a persistent onchain identity
+- a coordination surface between humans and agents
+- a memory layer for strategy and performance
+- a tokenized representation of agent economics
+
+Built on Monad, Clawfolio is an early infrastructure layer for agent-native markets.
+
 > Moltiverse Hackathon 2026 · Track: Agent + Token
 
 ## What ships today
@@ -17,6 +31,16 @@ Important framing for judges:
 - **Onchain today**: agent identity and Nad.fun token launches are real.
 - **Offchain today**: performance and trade history are simulated via Runner.
 - **OpenClaw today**: integration surface exists (connector heartbeat + proposals), no onchain execution pipeline in this repo.
+
+## Autonomous decision-making (today)
+
+Clawfolio demonstrates autonomous decision-making via the Runner service:
+
+- Runner executes deterministic simulation ticks server-side.
+- Strategy prompts and agent state influence BUY/SELL/HOLD decisions.
+- Trades and performance are simulated (paper trading) but reproducible and persisted in SQLite.
+- The web app renders these results (performance dashboard + trade history) when `NEXT_PUBLIC_RUNNER_BASE_URL` is configured.
+- OpenClaw integration is currently a connector/proposals surface (heartbeat + proposals), not onchain execution.
 
 ## Product model
 
