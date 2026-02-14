@@ -33,7 +33,7 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-3 text-sm">Resources</h4>
             <div className="space-y-2">
-              <a href="https://github.com/clawfolio" target="_blank" rel="noopener noreferrer" className="block text-sm text-white/60 hover:text-white hover:underline underline-offset-4 transition-colors">
+              <a href="https://github.com/21nemus/clawfolio-public" target="_blank" rel="noopener noreferrer" className="block text-sm text-white/60 hover:text-white hover:underline underline-offset-4 transition-colors">
                 GitHub
               </a>
               <a href="https://docs.monad.xyz" target="_blank" rel="noopener noreferrer" className="block text-sm text-white/60 hover:text-white hover:underline underline-offset-4 transition-colors">
